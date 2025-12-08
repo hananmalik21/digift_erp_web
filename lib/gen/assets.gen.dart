@@ -32,6 +32,10 @@ class $AssetsIconsGen {
   /// File path: assets/icons/add_icon.svg
   SvgGenImage get addIcon => const SvgGenImage('assets/icons/add_icon.svg');
 
+  /// File path: assets/icons/additional_info_icon.svg
+  SvgGenImage get additionalInfoIcon =>
+      const SvgGenImage('assets/icons/additional_info_icon.svg');
+
   /// File path: assets/icons/audit_compliance_icon.svg
   SvgGenImage get auditComplianceIcon =>
       const SvgGenImage('assets/icons/audit_compliance_icon.svg');
@@ -57,9 +61,16 @@ class $AssetsIconsGen {
   SvgGenImage get dangerIcon =>
       const SvgGenImage('assets/icons/danger_icon.svg');
 
+  /// File path: assets/icons/data_access_sets_icon.svg
+  SvgGenImage get dataAccessSetsIcon =>
+      const SvgGenImage('assets/icons/data_access_sets_icon.svg');
+
   /// File path: assets/icons/data_security_icon.svg
   SvgGenImage get dataSecurityIcon =>
       const SvgGenImage('assets/icons/data_security_icon.svg');
+
+  /// File path: assets/icons/db_icon.svg
+  SvgGenImage get dbIcon => const SvgGenImage('assets/icons/db_icon.svg');
 
   /// File path: assets/icons/delete_icon.svg
   SvgGenImage get deleteIcon =>
@@ -67,6 +78,10 @@ class $AssetsIconsGen {
 
   /// File path: assets/icons/depth_icon.svg
   SvgGenImage get depthIcon => const SvgGenImage('assets/icons/depth_icon.svg');
+
+  /// File path: assets/icons/dollar_icon.svg
+  SvgGenImage get dollarIcon =>
+      const SvgGenImage('assets/icons/dollar_icon.svg');
 
   /// File path: assets/icons/download_icon.svg
   SvgGenImage get downloadIcon =>
@@ -167,9 +182,16 @@ class $AssetsIconsGen {
   SvgGenImage get sessionManagementIcon =>
       const SvgGenImage('assets/icons/session_management_icon.svg');
 
+  /// File path: assets/icons/system_setting_icon.svg
+  SvgGenImage get systemSettingIcon =>
+      const SvgGenImage('assets/icons/system_setting_icon.svg');
+
   /// File path: assets/icons/treasury_icon.svg
   SvgGenImage get treasuryIcon =>
       const SvgGenImage('assets/icons/treasury_icon.svg');
+
+  /// File path: assets/icons/user_icon.svg
+  SvgGenImage get userIcon => const SvgGenImage('assets/icons/user_icon.svg');
 
   /// File path: assets/icons/user_management_icon.svg
   SvgGenImage get userManagementIcon =>
@@ -193,6 +215,7 @@ class $AssetsIconsGen {
     accountsPayableIcon,
     activeSessionIcon,
     addIcon,
+    additionalInfoIcon,
     auditComplianceIcon,
     boxIcon,
     cashManagementIcon,
@@ -200,9 +223,12 @@ class $AssetsIconsGen {
     copyIcon,
     crossCircleIcon,
     dangerIcon,
+    dataAccessSetsIcon,
     dataSecurityIcon,
+    dbIcon,
     deleteIcon,
     depthIcon,
+    dollarIcon,
     downloadIcon,
     dutyRoleIcon,
     editIcon,
@@ -229,7 +255,9 @@ class $AssetsIconsGen {
     securityPoliciesIcon,
     securityReportsIcons,
     sessionManagementIcon,
+    systemSettingIcon,
     treasuryIcon,
+    userIcon,
     userManagementIcon,
     visibleIcon,
     warningIcon,

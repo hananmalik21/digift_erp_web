@@ -8,17 +8,18 @@ import 'sidebar_user_section.dart';
 import 'sidebar_footer.dart';
 
 class AppSidebar extends ConsumerWidget {
-  final VoidCallback? onClose;
+  final bool isMobileDrawer;
 
   const AppSidebar({
     super.key,
-    this.onClose,
+    required this.isMobileDrawer,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sidebarState = ref.watch(sidebarProvider);
-    final isCollapsed = sidebarState.isCollapsed;
+    // On mobile drawer, always show expanded
+    final isCollapsed = isMobileDrawer ? false : sidebarState.isCollapsed;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -45,7 +46,7 @@ class AppSidebar extends ConsumerWidget {
           children: [
             SidebarHeader(
               isCollapsed: isCollapsed,
-              onClose: onClose,
+              isMobileDrawer: isMobileDrawer,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -56,6 +57,7 @@ class AppSidebar extends ConsumerWidget {
                     return SidebarMenuItem(
                       item: item,
                       isCollapsed: isCollapsed,
+                      isMobileDrawer: isMobileDrawer,
                     );
                   }).toList(),
                 ),

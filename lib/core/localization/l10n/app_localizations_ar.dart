@@ -165,10 +165,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get roleTemplates => 'قوالب الأدوار';
 
   @override
+  String get dataSecurity => 'أمان البيانات';
+
+  @override
   String get securityPolicies => 'سياسات الأمان';
 
   @override
   String get dataAccessSets => 'مجموعات الوصول للبيانات';
+
+  @override
+  String get securityProfiles => 'ملفات الأمان';
 
   @override
   String get functionPrivileges => 'صلاحيات الوظائف';
@@ -183,10 +189,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String get auditCompliance => 'التدقيق والامتثال';
 
   @override
-  String get dataSecurityPrivacy => 'أمن البيانات والخصوصية';
+  String get auditLogs => 'سجلات التدقيق';
+
+  @override
+  String get loginHistory => 'سجل تسجيل الدخول';
+
+  @override
+  String get accessReports => 'تقارير الوصول';
+
+  @override
+  String get complianceReports => 'تقارير الامتثال';
 
   @override
   String get sessionManagement => 'إدارة الجلسات';
+
+  @override
+  String get securityReports => 'تقارير الأمان';
+
+  @override
+  String get dataSecurityPrivacy => 'أمن البيانات والخصوصية';
 
   @override
   String get securityReportsAnalytics => 'تقارير الأمان والتحليلات';
@@ -678,9 +699,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get addPrivilege => 'إضافة صلاحية';
-
-  @override
-  String get dataSecurity => 'أمان البيانات';
 
   @override
   String get dataAccessSet => 'مجموعة الوصول للبيانات';

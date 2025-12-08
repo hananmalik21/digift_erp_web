@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../gen/assets.gen.dart';
+import '../../data/models/function_model.dart';
+import '../providers/functions_provider.dart';
 
-class CreateFunctionDialog extends StatefulWidget {
-  const CreateFunctionDialog({super.key});
+class CreateFunctionDialog extends ConsumerStatefulWidget {
+  final FunctionModel? function; // null for create mode, non-null for edit mode
+
+  const CreateFunctionDialog({
+    super.key,
+    this.function,
+  });
 
   @override
-  State<CreateFunctionDialog> createState() => _CreateFunctionDialogState();
+  ConsumerState<CreateFunctionDialog> createState() => _CreateFunctionDialogState();
 }
 
-class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
+class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
-  final _categoryController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   String? _selectedModule;
-  String _selectedAccessType = 'View';
   String _selectedStatus = 'Active';
 
   bool _isLoading = false;
@@ -35,40 +41,114 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
     'Financial Reporting',
   ];
 
-  final List<String> _accessTypes = ['View', 'Execute', 'Full'];
   final List<String> _statuses = ['Active', 'Inactive'];
+
+  bool get isEditMode => widget.function != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-populate fields if in edit mode
+    if (isEditMode && widget.function != null) {
+      _codeController.text = widget.function!.code;
+      _nameController.text = widget.function!.name;
+      _descriptionController.text = widget.function!.description;
+      
+      // Map module value to dropdown item
+      // Handle cases like "Module 1", "Module 2", etc. or direct module names
+      final moduleValue = widget.function!.module;
+      if (moduleValue.startsWith('Module ')) {
+        // Module is in format "Module X" which doesn't match dropdown items
+        // Set to null so dropdown shows hint (module is read-only in edit mode anyway)
+        _selectedModule = null;
+      } else {
+        // Check if the module value exists in our dropdown list
+        if (_modules.contains(moduleValue)) {
+          _selectedModule = moduleValue;
+        } else {
+          _selectedModule = null;
+        }
+      }
+      
+      _selectedStatus = widget.function!.status;
+    }
+  }
 
   @override
   void dispose() {
     _codeController.dispose();
     _nameController.dispose();
-    _categoryController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
-  void _handleCreate() {
+  Future<void> _handleCreate() async {
     setState(() {
       _moduleError = _selectedModule == null;
     });
 
-    if (_formKey.currentState!.validate() && _selectedModule != null) {
+    // if (_formKey.currentState!.validate() && _selectedModule != null) {
+    if (_formKey.currentState!.validate() ) {
       setState(() => _isLoading = true);
       
-      // Simulate API call
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.of(context).pop({
-            'code': _codeController.text,
-            'name': _nameController.text,
-            'module': _selectedModule,
-            'category': _categoryController.text,
-            'accessType': _selectedAccessType,
-            'status': _selectedStatus,
-            'description': _descriptionController.text,
-          });
+      try {
+        final functionsNotifier = ref.read(functionsProvider.notifier);
+        
+        // Map status to API format
+        final status = _selectedStatus == 'Active' ? 'ACTIVE' : 'INACTIVE';
+        
+        if (isEditMode && widget.function != null) {
+          // Update existing function
+          await functionsNotifier.updateFunction(
+            id: widget.function!.id,
+            name: _nameController.text.trim(),
+            description: _descriptionController.text.trim(),
+            status: status,
+            updatedBy: 'ADMIN', // You can get this from auth context
+          );
+
+          if (mounted) {
+            Navigator.of(context).pop(true); // Return true to indicate success
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Function updated successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          // Create new function
+          await functionsNotifier.createFunction(
+            code: _codeController.text.trim(),
+            name: _nameController.text.trim(),
+            description: _descriptionController.text.trim(),
+            // module: _selectedModule!,
+            module: "3",
+            status: status,
+            createdBy: 'ADMIN', // You can get this from auth context
+          );
+
+          if (mounted) {
+            Navigator.of(context).pop(true); // Return true to indicate success
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Function created successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
-      });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to ${isEditMode ? 'update' : 'create'} function: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -122,12 +202,6 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
                   const SizedBox(height: 26),
                   _buildTwoColumnRow(
                     _buildModuleField(isDark),
-                    _buildCategoryField(isDark),
-                    isMobile,
-                  ),
-                  const SizedBox(height: 26),
-                  _buildTwoColumnRow(
-                    _buildAccessTypeField(isDark),
                     _buildStatusField(isDark),
                     isMobile,
                   ),
@@ -152,7 +226,7 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Create New Function',
+                isEditMode ? 'Edit Function' : 'Create New Function',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 17.3,
@@ -163,7 +237,9 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Define a new system function',
+                isEditMode 
+                    ? 'Update function details'
+                    : 'Define a new system function',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 13.6,
@@ -223,6 +299,7 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
           ),
           child: TextFormField(
             controller: _codeController,
+            enabled: !isEditMode, // Disable in edit mode
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 15.8,
@@ -319,7 +396,9 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: _selectedModule,
+              value: _selectedModule != null && _modules.contains(_selectedModule)
+                  ? _selectedModule
+                  : null,
               isExpanded: true,
               hint: Padding(
                 padding: const EdgeInsets.only(left: 20),
@@ -356,7 +435,7 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
                   ),
                 );
               }).toList(),
-              onChanged: (value) {
+              onChanged: isEditMode ? null : (value) {
                 setState(() {
                   _selectedModule = value;
                   _moduleError = false;
@@ -378,102 +457,6 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
               ),
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Category', true, isDark),
-        const SizedBox(height: 6),
-        Container(
-          height: 42,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormField(
-            controller: _categoryController,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15.3,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
-            ),
-            decoration: InputDecoration(
-              hintText: 'e.g., Journal Management',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.3,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF0A0A0A).withValues(alpha: 0.5),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10.5,
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Required';
-              }
-              return null;
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAccessTypeField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Access Type', true, isDark),
-        const SizedBox(height: 6),
-        Container(
-          height: 39,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedAccessType,
-              isExpanded: true,
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, size: 20),
-              ),
-              dropdownColor:
-                  isDark ? context.themeCardBackground : Colors.white,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.1,
-                fontWeight: FontWeight.w400,
-                color: isDark ? Colors.white : const Color(0xFF0F172B),
-                height: 1.26,
-              ),
-              items: _accessTypes.map((String type) {
-                return DropdownMenuItem<String>(
-                  value: type,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Text(type),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedAccessType = value!;
-                });
-              },
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -692,9 +675,9 @@ class _CreateFunctionDialogState extends State<CreateFunctionDialog> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Create Function',
-                    style: TextStyle(
+                  Text(
+                    isEditMode ? 'Update Function' : 'Create Function',
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13.8,
                       fontWeight: FontWeight.w500,

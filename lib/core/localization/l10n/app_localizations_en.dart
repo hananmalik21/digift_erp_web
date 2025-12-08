@@ -165,10 +165,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get roleTemplates => 'Role Templates';
 
   @override
+  String get dataSecurity => 'Data Security';
+
+  @override
   String get securityPolicies => 'Security Policies';
 
   @override
   String get dataAccessSets => 'Data Access Sets';
+
+  @override
+  String get securityProfiles => 'Security Profiles';
 
   @override
   String get functionPrivileges => 'Function Privileges';
@@ -183,10 +189,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditCompliance => 'Audit & Compliance';
 
   @override
-  String get dataSecurityPrivacy => 'Data Security & Privacy';
+  String get auditLogs => 'Audit Logs';
+
+  @override
+  String get loginHistory => 'Login History';
+
+  @override
+  String get accessReports => 'Access Reports';
+
+  @override
+  String get complianceReports => 'Compliance Reports';
 
   @override
   String get sessionManagement => 'Session Management';
+
+  @override
+  String get securityReports => 'Security Reports';
+
+  @override
+  String get dataSecurityPrivacy => 'Data Security & Privacy';
 
   @override
   String get securityReportsAnalytics => 'Security Reports & Analytics';
@@ -678,9 +699,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addPrivilege => 'Add Privilege';
-
-  @override
-  String get dataSecurity => 'Data Security';
 
   @override
   String get dataAccessSet => 'Data Access Set';

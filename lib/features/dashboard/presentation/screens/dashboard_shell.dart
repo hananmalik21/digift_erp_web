@@ -4,7 +4,7 @@ import '../../../../core/theme/theme_extensions.dart';
 import '../providers/sidebar_provider.dart';
 import '../widgets/app_sidebar.dart';
 
-class DashboardShell extends ConsumerWidget {
+class DashboardShell extends ConsumerStatefulWidget {
   final Widget child;
 
   const DashboardShell({
@@ -13,12 +13,20 @@ class DashboardShell extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardShell> createState() => _DashboardShellState();
+}
+
+class _DashboardShellState extends ConsumerState<DashboardShell> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 768;
     final sidebarState = ref.watch(sidebarProvider);
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: context.themeBackground,
       appBar: isMobile
           ? AppBar(
@@ -27,30 +35,20 @@ class DashboardShell extends ConsumerWidget {
               leading: IconButton(
                 icon: const Icon(Icons.menu),
                 onPressed: () {
-                  Scaffold.of(context).openDrawer();
+                  _scaffoldKey.currentState?.openDrawer();
                 },
               ),
-              actions: [
-                if (!sidebarState.isCollapsed)
-                  IconButton(
-                    icon: const Icon(Icons.menu_open),
-                    onPressed: () {
-                      ref.read(sidebarProvider.notifier).toggleCollapsed();
-                    },
-                  ),
-              ],
             )
           : null,
       drawer: isMobile
           ? Drawer(
-              child: AppSidebar(
-                onClose: () => Navigator.pop(context),
-              ),
+              backgroundColor: const Color(0xFF1D293D),
+              child: const AppSidebar(isMobileDrawer: true),
             )
           : null,
       body: Row(
         children: [
-          if (!isMobile) const AppSidebar(),
+          if (!isMobile) const AppSidebar(isMobileDrawer: false),
           Expanded(
             child: Column(
               children: [
@@ -84,7 +82,7 @@ class DashboardShell extends ConsumerWidget {
                       ],
                     ),
                   ),
-                Expanded(child: child),
+                Expanded(child: widget.child),
               ],
             ),
           ),

@@ -15,10 +15,12 @@ import '../../features/security_console/role_hierarchy/presentation/screens/role
 import '../../features/security_console/role_templates/presentation/screens/role_templates_screen.dart';
 import '../../features/security_console/security_policies/presentation/screens/security_policies_screen.dart';
 import '../../features/security_console/data_access_sets/presentation/screens/data_access_sets_screen.dart';
+import '../../features/security_console/security_profiles/presentation/screens/security_profiles_screen.dart';
 import '../../features/security_console/function_privileges/presentation/screens/function_privileges_screen.dart';
-import '../../features/security_console/function_privileges/presentation/screens/functions_screen.dart';
+import '../../features/security_console/functions/presentation/screens/functions_screen.dart';
 import '../../features/security_console/duty_roles/presentation/screens/duty_roles_screen.dart';
 import '../../features/security_console/job_roles/presentation/screens/job_roles_screen.dart';
+import '../../features/security_console/user_accounts/presentation/screens/create_user_account_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -70,6 +72,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const UserAccountsScreen(),
           ),
           GoRoute(
+            path: '/dashboard/security/user-accounts/create',
+            name: 'create-user-account',
+            builder: (context, state) => const CreateUserAccountScreen(),
+          ),
+          GoRoute(
             path: '/dashboard/security/user-role-assignment',
             name: 'user-role-assignment',
             builder: (context, state) => const UserRoleAssignmentScreen(),
@@ -103,6 +110,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/dashboard/security/data-access-sets',
             name: 'data-access-sets',
             builder: (context, state) => const DataAccessSetsScreen(),
+          ),
+          GoRoute(
+            path: '/dashboard/security/security-profiles',
+            name: 'security-profiles',
+            builder: (context, state) => const SecurityProfilesScreen(),
           ),
           GoRoute(
             path: '/dashboard/security/function-privileges',

@@ -145,5 +145,33 @@ class AppColors {
   // Role Management Colors
   static const Color jobRoleBg = Color(0xFFDBEAFE);
   static const Color dutyRoleBg = Color(0xFFFFEDD5);
+
+  // Security Profiles Colors
+  static const Color securityProfilesBackground = Color(0xFFF9FAFB);
+  static const Color securityProfilesIconBg = Color(0xFFEFF6FF);
+  static const Color securityProfilesButtonBg = Color(0xFF030213);
+  static const Color securityProfilesSearchBg = Color(0xFFF3F3F5);
+  
+  // Status Badge Colors
+  static const Color activeStatusBgLight = Color(0xFFECFDF5);
+  static const Color activeStatusBorderLight = Color(0xFFB9F8CF);
+  static const Color activeStatusTextLight = Color(0xFF008236);
+  
+  // Permission Badge Colors
+  static const Color permissionBadgeBg = Color(0xFFEFF6FF);
+  static const Color permissionBadgeBorder = Color(0xFFBEDBFF);
+  static const Color permissionBadgeText = Color(0xFF1447E6);
+  
+  // Category Badge Colors
+  static const Color categoryBadgeBorder = Color(0xFFE5E7EB);
+  
+  // Stat Card Icon Colors
+  static const Color statIconBlue = Color(0xFF155DFC);
+  static const Color statIconGreen = Color(0xFF00A63E);
+  static const Color statIconOrange = Color(0xFFF54900);
+  static const Color statIconPurple = Color(0xFF9810FA);
+  
+  // Delete Icon Color
+  static const Color deleteIconRed = Color(0xFFFB2C36);
 }
 

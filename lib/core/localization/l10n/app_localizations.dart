@@ -410,6 +410,12 @@ abstract class AppLocalizations {
   /// **'Role Templates'**
   String get roleTemplates;
 
+  /// No description provided for @dataSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Security'**
+  String get dataSecurity;
+
   /// No description provided for @securityPolicies.
   ///
   /// In en, this message translates to:
@@ -421,6 +427,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Data Access Sets'**
   String get dataAccessSets;
+
+  /// No description provided for @securityProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Security Profiles'**
+  String get securityProfiles;
 
   /// No description provided for @functionPrivileges.
   ///
@@ -446,17 +458,47 @@ abstract class AppLocalizations {
   /// **'Audit & Compliance'**
   String get auditCompliance;
 
-  /// No description provided for @dataSecurityPrivacy.
+  /// No description provided for @auditLogs.
   ///
   /// In en, this message translates to:
-  /// **'Data Security & Privacy'**
-  String get dataSecurityPrivacy;
+  /// **'Audit Logs'**
+  String get auditLogs;
+
+  /// No description provided for @loginHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Login History'**
+  String get loginHistory;
+
+  /// No description provided for @accessReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Access Reports'**
+  String get accessReports;
+
+  /// No description provided for @complianceReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliance Reports'**
+  String get complianceReports;
 
   /// No description provided for @sessionManagement.
   ///
   /// In en, this message translates to:
   /// **'Session Management'**
   String get sessionManagement;
+
+  /// No description provided for @securityReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Security Reports'**
+  String get securityReports;
+
+  /// No description provided for @dataSecurityPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Security & Privacy'**
+  String get dataSecurityPrivacy;
 
   /// No description provided for @securityReportsAnalytics.
   ///
@@ -1411,12 +1453,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add Privilege'**
   String get addPrivilege;
-
-  /// No description provided for @dataSecurity.
-  ///
-  /// In en, this message translates to:
-  /// **'Data Security'**
-  String get dataSecurity;
 
   /// No description provided for @dataAccessSet.
   ///

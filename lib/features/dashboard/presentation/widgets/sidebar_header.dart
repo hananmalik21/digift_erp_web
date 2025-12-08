@@ -4,12 +4,12 @@ import '../providers/sidebar_provider.dart';
 
 class SidebarHeader extends ConsumerWidget {
   final bool isCollapsed;
-  final VoidCallback? onClose;
+  final bool isMobileDrawer;
 
   const SidebarHeader({
     super.key,
     required this.isCollapsed,
-    this.onClose,
+    this.isMobileDrawer = false,
   });
 
   @override
@@ -64,33 +64,33 @@ class SidebarHeader extends ConsumerWidget {
                 ),
               ),
             ),
-          if (onClose != null && !isCollapsed)
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: isCollapsed ? 0.0 : 1.0,
-              child: IconButton(
-                onPressed: onClose,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(
-                  Icons.close,
-                  size: 20,
-                  color: Color(0xFFCAD5E2),
-                ),
+          // On mobile drawer, show close button instead of collapse/expand
+          if (isMobileDrawer)
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: const Icon(
+                Icons.close,
+                size: 20,
+                color: Color(0xFFCAD5E2),
+              ),
+            )
+          else
+            IconButton(
+              onPressed: () {
+                ref.read(sidebarProvider.notifier).toggleCollapsed();
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                isCollapsed ? Icons.menu : Icons.close,
+                size: 20,
+                color: const Color(0xFFCAD5E2),
               ),
             ),
-          IconButton(
-            onPressed: () {
-              ref.read(sidebarProvider.notifier).toggleCollapsed();
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: Icon(
-              isCollapsed ? Icons.menu : Icons.close,
-              size: 20,
-              color: const Color(0xFFCAD5E2),
-            ),
-          ),
         ],
       ),
     );
