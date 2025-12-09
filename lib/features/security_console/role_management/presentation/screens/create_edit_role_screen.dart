@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../core/localization/l10n/app_localizations.dart';
 import '../../../../../core/widgets/custom_text_field.dart';
+import '../../../../../core/widgets/paginated_module_dropdown.dart';
 import '../../../../../gen/assets.gen.dart';
 
 class PrivilegeRow {
@@ -832,36 +833,51 @@ class _CreateEditRoleScreenState extends State<CreateEditRoleScreen> {
         children: [
           Expanded(
             flex: 3,
-            child: Container(
+            child: PaginatedModuleDropdown(
+              selectedModule: privilege.moduleController.text.isEmpty
+                  ? null
+                  : privilege.moduleController.text,
+              onChanged: (moduleName, moduleId) {
+                setState(() {
+                  privilege.moduleController.text = moduleName ?? '';
+                });
+              },
+              isDark: isDark,
               height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFD1D5DC)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: DropdownButton<String>(
-                value: privilege.moduleController.text.isEmpty
-                    ? null
-                    : privilege.moduleController.text,
-                hint: const Text(
-                  'Select module',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15,
-                    color: Color(0xFF9CA3AF),
-                  ),
+              hintText: 'Select module',
+            ),
+          ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFD1D5DC)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: DropdownButton<String>(
+              value: privilege.functionController.text.isEmpty
+                  ? null
+                  : privilege.functionController.text,
+              hint: const Text(
+                'Select function',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  color: Color(0xFF9CA3AF),
                 ),
-                isExpanded: true,
-                underline: const SizedBox(),
-                items: [
-                  'General Ledger',
-                  'Accounts Payable',
-                  'Accounts Receivable',
-                  'Fixed Assets',
-                ].map((item) {
-                  return DropdownMenuItem<String>(
-                    value: item,
-                    child: Text(
+              ),
+              isExpanded: true,
+              underline: const SizedBox(),
+              items: [
+                'Create Journal Entry',
+                'Approve Journal Entry',
+                'View Journal Entry',
+              ].map((item) {
+                return DropdownMenuItem<String>(
+                  value: item,
+                  child: Text(
                       item,
                       style: TextStyle(
                         fontFamily: 'Inter',
@@ -873,7 +889,7 @@ class _CreateEditRoleScreenState extends State<CreateEditRoleScreen> {
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    privilege.moduleController.text = value ?? '';
+                    privilege.functionController.text = value ?? '';
                   });
                 },
               ),

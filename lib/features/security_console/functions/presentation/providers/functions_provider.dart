@@ -8,7 +8,6 @@ import '../../domain/usecases/update_function_usecase.dart';
 import '../../domain/usecases/delete_function_usecase.dart';
 import '../../data/repositories/function_repository_impl.dart';
 import '../../data/datasources/function_remote_datasource.dart';
-import '../../data/datasources/module_remote_datasource.dart';
 
 // Providers
 final functionRemoteDataSourceProvider = Provider<FunctionRemoteDataSource>(
@@ -155,6 +154,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
     int? moduleId,
     String? status, // This is the API status: null, "ACTIVE", or "INACTIVE"
     List<String>? selectedFilterKeys,
+    bool append = false, // If true, append to existing functions instead of replacing
   }) async {
     // Store UI status for display (convert API status to UI status)
     final uiStatus = status == null
@@ -205,7 +205,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
       );
 
       state = state.copyWith(
-        functions: result.data,
+        functions: append ? [...state.functions, ...result.data] : result.data,
         isLoading: false,
         currentPage: result.currentPage,
         totalPages: result.totalPages,
@@ -222,6 +222,24 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
         error: e.toString(),
       );
       // Log error for debugging - removed to avoid production issues
+    }
+  }
+
+  /// Load more functions for dropdown (appends to existing list)
+  Future<void> loadMoreFunctions() async {
+    if (state.hasNextPage && !state.isLoading) {
+      final apiStatus = state.selectedStatus == 'All Status'
+          ? null
+          : state.selectedStatus == 'Active'
+              ? 'ACTIVE'
+              : 'INACTIVE';
+      await loadFunctions(
+        page: state.currentPage + 1,
+        module: state.selectedModule,
+        moduleId: state.selectedModuleId,
+        status: apiStatus,
+        append: true,
+      );
     }
   }
 

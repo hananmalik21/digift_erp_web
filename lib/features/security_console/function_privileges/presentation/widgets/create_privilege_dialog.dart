@@ -2,85 +2,169 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../gen/assets.gen.dart';
+import '../../../../../core/widgets/paginated_status_dropdown.dart';
+import '../../data/models/function_privilege_model.dart';
+import 'paginated_module_dropdown.dart';
+import 'paginated_function_dropdown.dart';
+import 'paginated_operation_dropdown.dart';
 
 class CreatePrivilegeDialog extends StatefulWidget {
-  const CreatePrivilegeDialog({super.key});
+  final FunctionPrivilegeModel? privilege;
+
+  final Future<void> Function({
+  required String code,
+  required String name,
+  required String description,
+  required int moduleId,
+  required int functionId,
+  required int operationId,
+  required String status,
+  required String createdBy,
+  })? onCreate;
+
+  final Future<void> Function({
+  required String id,
+  required String name,
+  required String description,
+  required int moduleId,
+  required int functionId,
+  required int operationId,
+  required String status,
+  required String updatedBy,
+  })? onUpdate;
+
+  const CreatePrivilegeDialog({
+    super.key,
+    this.privilege,
+    this.onCreate,
+    this.onUpdate,
+  });
 
   @override
   State<CreatePrivilegeDialog> createState() => _CreatePrivilegeDialogState();
 }
 
 class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
-  final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _functionController = TextEditingController();
 
   String? _selectedModule;
+  int? _selectedModuleId;
+
+  String? _selectedFunction;
+  int? _selectedFunctionId;
+
   String? _selectedOperation;
-  String _selectedStatus = 'Active';
+  int? _selectedOperationId;
 
+  String _selectedStatus = "Active";
   bool _isLoading = false;
-  bool _moduleError = false;
-  bool _operationError = false;
 
-  final List<String> _modules = [
-    'General Ledger',
-    'Accounts Payable',
-    'Accounts Receivable',
-    'Cash Management',
-    'Fixed Assets',
-  ];
+  bool get isEditMode => widget.privilege != null;
 
-  final List<String> _operations = [
-    'Create',
-    'Read',
-    'Update',
-    'Delete',
-    'Post',
-    'Approve',
-    'Export',
-  ];
+  /// ✅ Button enabled ONLY when everything is filled/selected
+  bool get _isFormValid {
+    return _codeController.text.trim().isNotEmpty &&
+        _nameController.text.trim().isNotEmpty &&
+        _selectedModuleId != null &&
+        _selectedFunctionId != null &&
+        _selectedOperationId != null &&
+        _selectedStatus.isNotEmpty;
+  }
 
-  final List<String> _statuses = ['Active', 'Inactive'];
+  @override
+  void initState() {
+    super.initState();
+
+    if (isEditMode && widget.privilege != null) {
+      final p = widget.privilege!;
+
+      _codeController.text = p.code;
+      _nameController.text = p.name;
+      _descriptionController.text = p.description;
+
+      // Pre-selected display names
+      _selectedModule = p.module;
+      _selectedFunction = p.function;
+      _selectedOperation = p.operation;
+
+      // Pre-selected IDs
+      _selectedModuleId = p.moduleId;
+      _selectedFunctionId = p.functionId;
+      _selectedOperationId = p.operationId;
+
+      _selectedStatus = p.status == "ACTIVE" ? "Active" : "Inactive";
+    }
+
+    // Rebuild on text change to refresh button state
+    _codeController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _nameController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _descriptionController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
     _codeController.dispose();
     _nameController.dispose();
     _descriptionController.dispose();
-    _functionController.dispose();
     super.dispose();
   }
 
-  void _handleCreate() {
-    setState(() {
-      _moduleError = _selectedModule == null;
-      _operationError = _selectedOperation == null;
-    });
+  Future<void> _handleSubmit() async {
+    if (!_isFormValid) return;
 
-    if (_formKey.currentState!.validate() &&
-        _selectedModule != null &&
-        _selectedOperation != null) {
-      setState(() => _isLoading = true);
-      
-      // Simulate API call
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.of(context).pop({
-            'code': _codeController.text,
-            'name': _nameController.text,
-            'description': _descriptionController.text,
-            'module': _selectedModule,
-            'function': _functionController.text,
-            'operation': _selectedOperation,
-            'status': _selectedStatus,
-          });
-        }
-      });
+    setState(() => _isLoading = true);
+    final status = _selectedStatus == "Active" ? "ACTIVE" : "INACTIVE";
+
+    try {
+      if (isEditMode && widget.onUpdate != null) {
+        await widget.onUpdate!(
+          id: widget.privilege!.id,
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          moduleId: _selectedModuleId!,
+          functionId: _selectedFunctionId!,
+          operationId: _selectedOperationId!,
+          status: status,
+          updatedBy: "ADMIN",
+        );
+      } else if (widget.onCreate != null) {
+        await widget.onCreate!(
+          code: _codeController.text.trim(),
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          moduleId: _selectedModuleId!,
+          functionId: _selectedFunctionId!,
+          operationId: _selectedOperationId!,
+          status: status,
+          createdBy: "ADMIN",
+        );
+      }
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // UI SECTION  (Design kept as-is)
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -116,37 +200,38 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(context, isDark),
-                  const SizedBox(height: 20),
-                  _buildTwoColumnRow(
-                    _buildPrivilegeCodeField(isDark),
-                    _buildPrivilegeNameField(isDark),
-                    isMobile,
-                  ),
-                  const SizedBox(height: 30),
-                  _buildDescriptionField(isDark),
-                  const SizedBox(height: 26),
-                  _buildTwoColumnRow(
-                    _buildModuleField(isDark),
-                    _buildFunctionField(isDark),
-                    isMobile,
-                  ),
-                  const SizedBox(height: 28),
-                  _buildTwoColumnRow(
-                    _buildOperationField(isDark),
-                    _buildStatusField(isDark),
-                    isMobile,
-                  ),
-                  const SizedBox(height: 40),
-                  _buildButtons(context, isDark, isMobile),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _header(isDark),
+                const SizedBox(height: 20),
+
+                _row(
+                  _codeField(isDark),
+                  _nameField(isDark),
+                  isMobile,
+                ),
+                const SizedBox(height: 30),
+
+                _descriptionField(isDark),
+                const SizedBox(height: 26),
+
+                _row(
+                  _moduleDropdown(isDark),
+                  _functionDropdown(isDark),
+                  isMobile,
+                ),
+                const SizedBox(height: 28),
+
+                _row(
+                  _operationDropdown(isDark),
+                  _statusDropdown(isDark),
+                  isMobile,
+                ),
+                const SizedBox(height: 40),
+
+                _buttons(context, isDark, isMobile),
+              ],
             ),
           ),
         ),
@@ -154,7 +239,11 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark) {
+  // ---------------------------------------------------------------------------
+  // UI COMPONENTS
+  // ---------------------------------------------------------------------------
+
+  Widget _header(bool isDark) {
     return Row(
       children: [
         Expanded(
@@ -162,54 +251,48 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Create New Function Privilege',
+                isEditMode
+                    ? "Edit Function Privilege"
+                    : "Create New Function Privilege",
                 style: TextStyle(
-                  fontFamily: 'Inter',
+                  fontFamily: "Inter",
                   fontSize: 17.3,
                   fontWeight: FontWeight.w600,
                   color: isDark ? Colors.white : const Color(0xFF0F172B),
-                  height: 1.04, // 18px / 17.3px
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Define a new function privilege',
+                isEditMode
+                    ? "Update function privilege details"
+                    : "Define a new function privilege",
                 style: TextStyle(
-                  fontFamily: 'Inter',
+                  fontFamily: "Inter",
                   fontSize: 13.6,
-                  fontWeight: FontWeight.w400,
-                  color: isDark
-                      ? const Color(0xFF9CA3AF)
-                      : const Color(0xFF717182),
-                  height: 1.47, // 20px / 13.6px
+                  color: isDark ? Colors.grey[300] : Colors.grey[600],
                 ),
               ),
             ],
           ),
         ),
         IconButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.close, size: 16),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          color: isDark ? Colors.white : const Color(0xFF0F172B),
         ),
       ],
     );
   }
 
-  Widget _buildTwoColumnRow(Widget left, Widget right, bool isMobile) {
-    if (isMobile) {
-      return Column(
-        children: [
-          left,
-          const SizedBox(height: 24),
-          right,
-        ],
-      );
-    }
-
-    return Row(
+  Widget _row(Widget left, Widget right, bool isMobile) {
+    return isMobile
+        ? Column(
+      children: [
+        left,
+        const SizedBox(height: 24),
+        right,
+      ],
+    )
+        : Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(child: left),
@@ -219,174 +302,40 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
     );
   }
 
-  Widget _buildPrivilegeCodeField(bool isDark) {
+  Widget _codeField(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Privilege Code', true, isDark),
+        _label("Privilege Code", true),
         const SizedBox(height: 6),
         SizedBox(
           height: 36,
           child: TextFormField(
             controller: _codeController,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
+            enabled: !isEditMode, // read-only in edit mode (same look)
+            decoration: _textFieldDecoration(
+              isDark,
+              hint: "e.g., GL_JE_CREATE",
             ),
-            decoration: InputDecoration(
-              hintText: 'e.g., GL_JE_CREATE',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: isDark
-                    ? const Color(0xFF9CA3AF)
-                    : const Color(0xFF717182),
-              ),
-              filled: true,
-              fillColor: isDark
-                  ? const Color(0xFF374151)
-                  : const Color(0xFFF3F3F5),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF155DFC)),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFFB2C36)),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFFB2C36)),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8.75,
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Required';
-              }
-              return null;
-            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPrivilegeNameField(bool isDark) {
+  Widget _nameField(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Privilege Name', true, isDark),
+        _label("Privilege Name", true),
         const SizedBox(height: 6),
         SizedBox(
           height: 36,
           child: TextFormField(
             controller: _nameController,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13.6,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
-            ),
-            decoration: InputDecoration(
-              hintText: 'e.g., Create Journal Entry',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13.6,
-                fontWeight: FontWeight.w400,
-                color: isDark
-                    ? const Color(0xFF9CA3AF)
-                    : const Color(0xFF717182),
-              ),
-              filled: true,
-              fillColor: isDark
-                  ? const Color(0xFF374151)
-                  : const Color(0xFFF3F3F5),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF155DFC)),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFFB2C36)),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFFB2C36)),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8.75,
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Required';
-              }
-              return null;
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDescriptionField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Description', false, isDark),
-        const SizedBox(height: 6),
-        Container(
-          height: 80,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormField(
-            controller: _descriptionController,
-            maxLines: null,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15.3,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
-            ),
-            decoration: InputDecoration(
-              hintText: 'Enter privilege description...',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.3,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF0A0A0A).withValues(alpha: 0.5),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 8,
-              ),
+            decoration: _textFieldDecoration(
+              isDark,
+              hint: "e.g., Create Journal Entry",
             ),
           ),
         ),
@@ -394,381 +343,165 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
     );
   }
 
-  Widget _buildModuleField(bool isDark) {
+  Widget _descriptionField(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Module', true, isDark),
-        const SizedBox(height: 6),
-        Container(
-          height: 39,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: _moduleError
-                  ? const Color(0xFFFB2C36)
-                  : const Color(0xFFD1D5DC),
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedModule,
-              isExpanded: true,
-              hint: Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Text(
-                  'Select module',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15.4,
-                    fontWeight: FontWeight.w400,
-                    color: isDark ? Colors.white : const Color(0xFF0F172B),
-                    height: 1.23, // 19px / 15.4px
-                  ),
-                ),
-              ),
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, size: 20),
-              ),
-              dropdownColor:
-                  isDark ? context.themeCardBackground : Colors.white,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.4,
-                fontWeight: FontWeight.w400,
-                color: isDark ? Colors.white : const Color(0xFF0F172B),
-                height: 1.23,
-              ),
-              items: _modules.map((String module) {
-                return DropdownMenuItem<String>(
-                  value: module,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Text(module),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedModule = value;
-                  _moduleError = false;
-                });
-              },
-            ),
-          ),
-        ),
-        if (_moduleError)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 12),
-            child: Text(
-              'Required',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFFFB2C36),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildFunctionField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Function', true, isDark),
+        _label("Description", false),
         const SizedBox(height: 6),
         SizedBox(
-          height: 36,
+          height: 80,
           child: TextFormField(
-            controller: _functionController,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13.7,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
+            controller: _descriptionController,
+            expands: true,
+            maxLines: null,
+            textAlignVertical: TextAlignVertical.top,
+            decoration: _textFieldDecoration(
+              isDark,
+              hint: "Enter privilege description...",
             ),
-            decoration: InputDecoration(
-              hintText: 'e.g., Journal Entry',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13.7,
-                fontWeight: FontWeight.w400,
-                color: isDark
-                    ? const Color(0xFF9CA3AF)
-                    : const Color(0xFF717182),
-              ),
-              filled: true,
-              fillColor: isDark
-                  ? const Color(0xFF374151)
-                  : const Color(0xFFF3F3F5),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF155DFC)),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFFB2C36)),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFFB2C36)),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8.75,
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Required';
-              }
-              return null;
-            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildOperationField(bool isDark) {
+  Widget _moduleDropdown(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Operation', true, isDark),
+        _label("Module", true),
         const SizedBox(height: 6),
-        Container(
+        PaginatedModuleDropdown(
+          selectedModule: _selectedModule,
+          selectedModuleId: _selectedModuleId,
+          onChanged: (name, id) {
+            setState(() {
+              _selectedModule = name;
+              _selectedModuleId = id;
+            });
+          },
+          isDark: isDark,
           height: 39,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: _operationError
-                  ? const Color(0xFFFB2C36)
-                  : const Color(0xFFD1D5DC),
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedOperation,
-              isExpanded: true,
-              hint: Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Text(
-                  'Select operation',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15.3,
-                    fontWeight: FontWeight.w400,
-                    color: isDark ? Colors.white : const Color(0xFF0F172B),
-                    height: 1.24, // 19px / 15.3px
-                  ),
-                ),
-              ),
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, size: 20),
-              ),
-              dropdownColor:
-                  isDark ? context.themeCardBackground : Colors.white,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.3,
-                fontWeight: FontWeight.w400,
-                color: isDark ? Colors.white : const Color(0xFF0F172B),
-                height: 1.24,
-              ),
-              items: _operations.map((String operation) {
-                return DropdownMenuItem<String>(
-                  value: operation,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Text(operation),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedOperation = value;
-                  _operationError = false;
-                });
-              },
-            ),
-          ),
         ),
-        if (_operationError)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 12),
-            child: Text(
-              'Required',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFFFB2C36),
-              ),
-            ),
-          ),
       ],
     );
   }
 
-  Widget _buildStatusField(bool isDark) {
+  Widget _functionDropdown(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Status', true, isDark),
+        _label("Function", true),
         const SizedBox(height: 6),
-        Container(
+        PaginatedFunctionDropdown(
+          selectedFunction: _selectedFunction,
+          selectedFunctionId: _selectedFunctionId?.toString(),
+          onChanged: (name, id) {
+            setState(() {
+              _selectedFunction = name;
+              _selectedFunctionId = id == null ? null : int.parse(id);
+            });
+          },
+          isDark: isDark,
           height: 39,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedStatus,
-              isExpanded: true,
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, size: 20),
-              ),
-              dropdownColor:
-                  isDark ? context.themeCardBackground : Colors.white,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.1,
-                fontWeight: FontWeight.w400,
-                color: isDark ? Colors.white : const Color(0xFF0F172B),
-                height: 1.26, // 19px / 15.1px
-              ),
-              items: _statuses.map((String status) {
-                return DropdownMenuItem<String>(
-                  value: status,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Text(status),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedStatus = value!;
-                });
-              },
-            ),
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildLabel(String text, bool required, bool isDark) {
+  Widget _operationDropdown(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label("Operation", true),
+        const SizedBox(height: 6),
+        PaginatedOperationDropdown(
+          selectedOperation: _selectedOperation,
+          selectedOperationId: _selectedOperationId,
+          onChanged: (name, id) {
+            setState(() {
+              _selectedOperation = name;
+              _selectedOperationId = id;
+            });
+          },
+          isDark: isDark,
+          height: 39,
+        ),
+      ],
+    );
+  }
+
+  Widget _statusDropdown(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label("Status", true),
+        const SizedBox(height: 6),
+        PaginatedStatusDropdown(
+          selectedStatus: _selectedStatus,
+          isDark: isDark,
+          height: 39,
+          enableSearch: false,
+          statuses: const ["Active", "Inactive"],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _selectedStatus = value);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _label(String text, bool required) {
     return Row(
       children: [
         Text(
           text,
-          style: TextStyle(
-            fontFamily: 'Inter',
+          style: const TextStyle(
+            fontFamily: "Inter",
             fontSize: 13.8,
             fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white : const Color(0xFF0F172B),
-            height: 1.01, // 14px / 13.8px
           ),
         ),
-        if (required) ...[
-          const SizedBox(width: 4),
+        if (required)
           const Text(
-            '*',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFFFB2C36),
-              height: 1.0,
-            ),
+            " *",
+            style: TextStyle(color: Color(0xFFFB2C36)),
           ),
-        ],
       ],
     );
   }
 
-  Widget _buildButtons(BuildContext context, bool isDark, bool isMobile) {
-    if (isMobile) {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 36,
-            child: _buildCreateButton(context, isDark),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 36,
-            child: _buildCancelButton(context, isDark),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        _buildCancelButton(context, isDark),
-        const SizedBox(width: 8),
-        _buildCreateButton(context, isDark),
-      ],
-    );
-  }
-
-  Widget _buildCancelButton(BuildContext context, bool isDark) {
-    return SizedBox(
-      width: 79.35,
-      height: 36,
-      child: OutlinedButton(
-        onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isDark ? context.themeCardBackground : Colors.white,
-          foregroundColor: isDark ? Colors.white : const Color(0xFF0F172B),
-          side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Text(
-          'Cancel',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 13.7,
-            fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white : const Color(0xFF0F172B),
-            height: 1.46, // 20px / 13.7px
-          ),
-        ),
+  InputDecoration _textFieldDecoration(bool isDark, {required String hint}) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: isDark ? const Color(0xFF374151) : const Color(0xFFF3F3F5),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
       ),
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 12, vertical: 8.75),
     );
   }
 
-  Widget _buildCreateButton(BuildContext context, bool isDark) {
-    return SizedBox(
-      width: 160.8,
+  Widget _buttons(BuildContext ctx, bool isDark, bool isMobile) {
+    final isDisabled = !_isFormValid || _isLoading;
+    final iconColor = isDisabled ? const Color(0xFF9CA3AF) : Colors.white;
+
+    // CREATE / UPDATE
+    final createBtn = SizedBox(
+      width: isMobile ? double.infinity : 160.8,
       height: 36,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleCreate,
+        onPressed: isDisabled ? null : _handleSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF030213),
+          backgroundColor: isDisabled
+              ? const Color(0xFF030213).withValues(alpha: 0.5)
+              : const Color(0xFF030213),
           foregroundColor: Colors.white,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
@@ -778,39 +511,88 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
         ),
         child: _isLoading
             ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    Assets.icons.addIcon.path,
-                    width: 16,
-                    height: 16,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Create Privilege',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13.8,
-                      fontWeight: FontWeight.w500,
-                      height: 1.45, // 20px / 13.8px
-                    ),
-                  ),
-                ],
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              isEditMode
+                  ? Assets.icons.editIcon.path
+                  : Assets.icons.addIcon.path,
+              width: 16,
+              height: 16,
+              colorFilter: ColorFilter.mode(
+                iconColor,
+                BlendMode.srcIn,
               ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                isEditMode ? "Update Privilege" : "Create Privilege",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: "Inter",
+                  fontSize: 13.8,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+
+    // CANCEL
+    final cancelBtn = SizedBox(
+      width: isMobile ? double.infinity : 90,
+      height: 36,
+      child: OutlinedButton(
+        onPressed: _isLoading ? null : () => Navigator.pop(ctx),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isDark ? context.themeCardBackground : Colors.white,
+          foregroundColor: isDark ? Colors.white : const Color(0xFF0F172B),
+          side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: const Text(
+          "Cancel",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: "Inter",
+            fontSize: 13.7,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+
+    return isMobile
+        ? Column(
+      children: [
+        createBtn,
+        const SizedBox(height: 12),
+        cancelBtn,
+      ],
+    )
+        : Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        cancelBtn,
+        const SizedBox(width: 8),
+        createBtn,
+      ],
     );
   }
 }
-

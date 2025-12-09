@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../core/widgets/more_filters_dialog.dart';
 import '../../../../../core/models/filter_model.dart';
+import '../../../../../core/widgets/paginated_module_dropdown.dart';
 import '../providers/functions_provider.dart';
-import '../providers/modules_provider.dart';
 
 class FunctionsSearchAndFilters extends ConsumerStatefulWidget {
   final bool isDark;
@@ -286,81 +286,22 @@ class FunctionsModuleFilter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final modulesState = ref.watch(modulesProvider);
-    final modulesNotifier = ref.read(modulesProvider.notifier);
     final functionsNotifier = ref.read(functionsProvider.notifier);
+    
+    // Handle "All Modules" option
+    final isAllModules = selectedModule == 'All Modules';
+    final selectedModuleName = isAllModules ? null : selectedModule;
 
-    // Load modules on first build
-    if (!modulesState.isLoading && modulesState.modules.isEmpty && modulesState.error == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        modulesNotifier.loadModules();
-      });
-    }
-
-    // Build module list from API
-    final moduleItems = <String>['All Modules'];
-    if (modulesState.modules.isNotEmpty) {
-      moduleItems.addAll(modulesState.modules.map((m) => m.name));
-    } else if (modulesState.isLoading) {
-      // Keep "All Modules" while loading
-    } else {
-      // Fallback to empty list or show error state
-    }
-
-    return Container(
+    return PaginatedModuleDropdown(
+      selectedModule: selectedModuleName,
+      onChanged: (moduleName, moduleId) {
+        final value = moduleName ?? 'All Modules';
+        onChanged(value);
+        functionsNotifier.filterByModule(value, moduleId: moduleId);
+      },
+      isDark: isDark,
       height: 42,
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DC)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: selectedModule,
-          isExpanded: true,
-          icon: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: modulesState.isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.keyboard_arrow_down, size: 20),
-          ),
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 15.4,
-            fontWeight: FontWeight.w400,
-            color: isDark ? Colors.white : const Color(0xFF0F172B),
-            height: 1.23,
-          ),
-          dropdownColor: isDark ? context.themeCardBackground : Colors.white,
-              items: moduleItems.map((String module) {
-                return DropdownMenuItem<String>(
-                  value: module,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 21),
-                    child: Text(module),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  onChanged(value);
-                  // Find module ID for the selected module
-                  int? moduleId;
-                  if (value != 'All Modules' && modulesState.modules.isNotEmpty) {
-                    final selectedModule = modulesState.modules.firstWhere(
-                      (m) => m.name == value,
-                      orElse: () => modulesState.modules.first,
-                    );
-                    moduleId = selectedModule.id;
-                  }
-                  functionsNotifier.filterByModule(value, moduleId: moduleId);
-                }
-              },
-        ),
-      ),
+      hintText: 'All Modules',
     );
   }
 }

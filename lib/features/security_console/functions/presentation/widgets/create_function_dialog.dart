@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../gen/assets.gen.dart';
+import '../../../../../core/widgets/paginated_module_dropdown.dart';
 import '../../data/models/function_model.dart';
 import '../providers/functions_provider.dart';
-import '../providers/modules_provider.dart';
 
 class CreateFunctionDialog extends ConsumerStatefulWidget {
   final FunctionModel? function; // null for create mode, non-null for edit mode
@@ -355,129 +355,24 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   }
 
   Widget _buildModuleField(bool isDark, WidgetRef ref) {
-    final modulesState = ref.watch(modulesProvider);
-    final modulesNotifier = ref.read(modulesProvider.notifier);
-
-    // Load modules on first build
-    if (!modulesState.isLoading && modulesState.modules.isEmpty && modulesState.error == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        modulesNotifier.loadModules();
-      });
-    }
-
-    // Build module list from API
-    final moduleNames = modulesState.modules.map((m) => m.name).toList();
-    
-    // In edit mode, if the current module is not in the list, add it
-    String? selectedValue;
-    if (_selectedModule != null) {
-      if (moduleNames.contains(_selectedModule)) {
-        selectedValue = _selectedModule;
-      } else if (isEditMode) {
-        // In edit mode, keep the original module even if not in API list
-        selectedValue = _selectedModule;
-        if (!moduleNames.contains(_selectedModule)) {
-          // Add it temporarily to the list for display
-          moduleNames.insert(0, _selectedModule!);
-        }
-      }
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLabel('Module', true, isDark),
         const SizedBox(height: 6),
-        Container(
+        PaginatedModuleDropdown(
+          selectedModule: _selectedModule,
+          onChanged: (moduleName, moduleId) {
+            setState(() {
+              _selectedModule = moduleName;
+              _moduleError = false;
+            });
+          },
+          isDark: isDark,
           height: 39,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: _moduleError
-                  ? const Color(0xFFFB2C36)
-                  : const Color(0xFFD1D5DC),
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selectedValue,
-              isExpanded: true,
-              hint: Padding(
-                padding: const EdgeInsets.only(left: 20),
-                child: Text(
-                  'Select Module',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 15.3,
-                    fontWeight: FontWeight.w400,
-                    color: isDark ? Colors.white : const Color(0xFF0F172B),
-                    height: 1.24,
-                  ),
-                ),
-              ),
-              icon: Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: modulesState.isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.keyboard_arrow_down, size: 20),
-              ),
-              dropdownColor:
-                  isDark ? context.themeCardBackground : Colors.white,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.3,
-                fontWeight: FontWeight.w400,
-                color: isDark ? Colors.white : const Color(0xFF0F172B),
-                height: 1.24,
-              ),
-              items: moduleNames.map((String module) {
-                return DropdownMenuItem<String>(
-                  value: module,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Text(module),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedModule = value;
-                  _moduleError = false;
-                });
-              },
-            ),
-          ),
+          showError: _moduleError,
+          hintText: 'Select Module',
         ),
-        if (_moduleError)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 12),
-            child: Text(
-              'Required',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFFFB2C36),
-              ),
-            ),
-          ),
-        if (modulesState.error != null && !isEditMode)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 12),
-            child: Text(
-              'Failed to load modules',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFFFB2C36),
-              ),
-            ),
-          ),
       ],
     );
   }

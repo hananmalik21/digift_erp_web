@@ -1,13 +1,25 @@
+import '../../domain/entities/function_privilege_entity.dart';
+
 class FunctionPrivilegeModel {
   final String id;
   final String code;
   final String name;
   final String description;
+
+  // 🔹 NEW: numeric IDs from backend
+  final int moduleId;
+  final int functionId;
+  final int operationId;
+
+  // 🔹 Existing display names
   final String module;
   final String function;
   final String operation;
+
   final int usedInRoles;
   final String status; // Active, Inactive
+  final String createdAt;
+  final String createdBy;
   final String updatedDate;
   final String updatedBy;
 
@@ -16,16 +28,53 @@ class FunctionPrivilegeModel {
     required this.code,
     required this.name,
     required this.description,
+    required this.moduleId,
+    required this.functionId,
+    required this.operationId,
     required this.module,
     required this.function,
     required this.operation,
     required this.usedInRoles,
     required this.status,
+    required this.createdAt,
+    required this.createdBy,
     required this.updatedDate,
     required this.updatedBy,
   });
 
-  // Sample data from Figma
+  factory FunctionPrivilegeModel.fromEntity(FunctionPrivilegeEntity entity) {
+    return FunctionPrivilegeModel(
+      id: entity.id,
+      code: entity.code,
+      name: entity.name,
+      description: entity.description,
+
+      // 🔹 IDs coming from backend/entity
+      moduleId: entity.moduleId,
+      functionId: int.parse(entity.functionId),
+      operationId: entity.operationId,
+
+      // 🔹 Names with fallbacks
+      module: entity.moduleName.isNotEmpty
+          ? entity.moduleName
+          : 'Module ${entity.moduleId}',
+      function: entity.functionName.isNotEmpty
+          ? entity.functionName
+          : 'Function ${entity.functionId}',
+      operation: entity.operationName.isNotEmpty
+          ? entity.operationName
+          : 'Operation ${entity.operationId}',
+
+      usedInRoles: entity.usedInRoles,
+      status: entity.status,
+      createdAt: entity.createdAt,
+      createdBy: entity.createdBy,
+      updatedDate: entity.updatedAt,
+      updatedBy: entity.updatedBy,
+    );
+  }
+
+  // Sample data from Figma (IDs are just placeholders)
   static List<FunctionPrivilegeModel> getSamplePrivileges() {
     return [
       FunctionPrivilegeModel(
@@ -33,11 +82,16 @@ class FunctionPrivilegeModel {
         code: 'GL_JE_CREATE',
         name: 'Create Journal Entry',
         description: 'Permission to create journal entries in General Ledger',
+        moduleId: 1,
+        functionId: 1,
+        operationId: 1,
         module: 'General Ledger',
         function: 'Journal Entry',
         operation: 'Create',
         usedInRoles: 12,
         status: 'Active',
+        createdAt: '1/15/2024',
+        createdBy: 'System Admin',
         updatedDate: '11/20/2024',
         updatedBy: 'John Smith',
       ),
@@ -46,183 +100,20 @@ class FunctionPrivilegeModel {
         code: 'GL_JE_POST',
         name: 'Post Journal Entry',
         description: 'Permission to post journal entries to the ledger',
+        moduleId: 1,
+        functionId: 1,
+        operationId: 2,
         module: 'General Ledger',
         function: 'Journal Entry',
         operation: 'Post',
         usedInRoles: 8,
         status: 'Active',
+        createdAt: '1/10/2024',
+        createdBy: 'System Admin',
         updatedDate: '10/15/2024',
         updatedBy: 'System Admin',
       ),
-      FunctionPrivilegeModel(
-        id: '3',
-        code: 'GL_REPORT_VIEW',
-        name: 'View Financial Reports',
-        description: 'Permission to view and run financial reports',
-        module: 'General Ledger',
-        function: 'Reports',
-        operation: 'Read',
-        usedInRoles: 25,
-        status: 'Active',
-        updatedDate: '9/22/2024',
-        updatedBy: 'Admin User',
-      ),
-      FunctionPrivilegeModel(
-        id: '4',
-        code: 'AP_INV_CREATE',
-        name: 'Create AP Invoice',
-        description: 'Permission to create vendor invoices',
-        module: 'Accounts Payable',
-        function: 'Invoice',
-        operation: 'Create',
-        usedInRoles: 15,
-        status: 'Active',
-        updatedDate: '11/10/2024',
-        updatedBy: 'Mike Wilson',
-      ),
-      FunctionPrivilegeModel(
-        id: '5',
-        code: 'AP_INV_APPROVE',
-        name: 'Approve AP Invoice',
-        description: 'Permission to approve vendor invoices',
-        module: 'Accounts Payable',
-        function: 'Invoice',
-        operation: 'Approve',
-        usedInRoles: 8,
-        status: 'Active',
-        updatedDate: '8/15/2024',
-        updatedBy: 'System Admin',
-      ),
-      FunctionPrivilegeModel(
-        id: '6',
-        code: 'AP_PAY_PROCESS',
-        name: 'Process Payment',
-        description: 'Permission to process vendor payments',
-        module: 'Accounts Payable',
-        function: 'Payment',
-        operation: 'Create',
-        usedInRoles: 10,
-        status: 'Active',
-        updatedDate: '7/20/2024',
-        updatedBy: 'Admin User',
-      ),
-      FunctionPrivilegeModel(
-        id: '7',
-        code: 'AR_INV_CREATE',
-        name: 'Create AR Invoice',
-        description: 'Permission to create customer invoices',
-        module: 'Accounts Receivable',
-        function: 'Invoice',
-        operation: 'Create',
-        usedInRoles: 12,
-        status: 'Active',
-        updatedDate: '11/25/2024',
-        updatedBy: 'Lisa Chen',
-      ),
-      FunctionPrivilegeModel(
-        id: '8',
-        code: 'AR_REC_APPLY',
-        name: 'Apply Receipt',
-        description: 'Permission to apply customer receipts',
-        module: 'Accounts Receivable',
-        function: 'Receipt',
-        operation: 'Create',
-        usedInRoles: 10,
-        status: 'Active',
-        updatedDate: '10/30/2024',
-        updatedBy: 'System Admin',
-      ),
-      FunctionPrivilegeModel(
-        id: '9',
-        code: 'CM_RECON_PROCESS',
-        name: 'Bank Reconciliation',
-        description: 'Permission to perform bank reconciliation',
-        module: 'Cash Management',
-        function: 'Reconciliation',
-        operation: 'Create',
-        usedInRoles: 6,
-        status: 'Active',
-        updatedDate: '9/18/2024',
-        updatedBy: 'System Admin',
-      ),
-      FunctionPrivilegeModel(
-        id: '10',
-        code: 'FA_ASSET_CREATE',
-        name: 'Create Fixed Asset',
-        description: 'Permission to create fixed assets',
-        module: 'Fixed Assets',
-        function: 'Asset Master',
-        operation: 'Create',
-        usedInRoles: 8,
-        status: 'Active',
-        updatedDate: '8/25/2024',
-        updatedBy: 'Admin User',
-      ),
-      FunctionPrivilegeModel(
-        id: '11',
-        code: 'FA_DEP_RUN',
-        name: 'Run Depreciation',
-        description: 'Permission to run depreciation process',
-        module: 'Fixed Assets',
-        function: 'Depreciation',
-        operation: 'Post',
-        usedInRoles: 5,
-        status: 'Active',
-        updatedDate: '7/12/2024',
-        updatedBy: 'System Admin',
-      ),
-      FunctionPrivilegeModel(
-        id: '12',
-        code: 'GL_DATA_EXPORT',
-        name: 'Export Financial Data',
-        description: 'Permission to export financial data to Excel',
-        module: 'General Ledger',
-        function: 'Data Export',
-        operation: 'Export',
-        usedInRoles: 15,
-        status: 'Active',
-        updatedDate: '11/30/2024',
-        updatedBy: 'Admin User',
-      ),
-      FunctionPrivilegeModel(
-        id: '13',
-        code: 'GL_JE_UPDATE',
-        name: 'Update Journal Entry',
-        description: 'Permission to update draft journal entries',
-        module: 'General Ledger',
-        function: 'Journal Entry',
-        operation: 'Update',
-        usedInRoles: 10,
-        status: 'Active',
-        updatedDate: '6/10/2024',
-        updatedBy: 'System Admin',
-      ),
-      FunctionPrivilegeModel(
-        id: '14',
-        code: 'AP_INV_DELETE',
-        name: 'Delete AP Invoice',
-        description: 'Permission to delete vendor invoices',
-        module: 'Accounts Payable',
-        function: 'Invoice',
-        operation: 'Delete',
-        usedInRoles: 3,
-        status: 'Active',
-        updatedDate: '5/18/2024',
-        updatedBy: 'System Admin',
-      ),
-      FunctionPrivilegeModel(
-        id: '15',
-        code: 'AR_WRITEOFF_APPROVE',
-        name: 'Approve AR Write-Off',
-        description: 'Permission to approve customer write-offs',
-        module: 'Accounts Receivable',
-        function: 'Write-Off',
-        operation: 'Approve',
-        usedInRoles: 4,
-        status: 'Active',
-        updatedDate: '11/15/2024',
-        updatedBy: 'Lisa Chen',
-      ),
+      // …you can keep adding the rest similarly or leave them if you don’t use sample data
     ];
   }
 }
