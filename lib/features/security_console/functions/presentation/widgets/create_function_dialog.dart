@@ -5,6 +5,7 @@ import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../gen/assets.gen.dart';
 import '../../data/models/function_model.dart';
 import '../providers/functions_provider.dart';
+import '../providers/modules_provider.dart';
 
 class CreateFunctionDialog extends ConsumerStatefulWidget {
   final FunctionModel? function; // null for create mode, non-null for edit mode
@@ -30,17 +31,6 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   bool _isLoading = false;
   bool _moduleError = false;
 
-  final List<String> _modules = [
-    'General Ledger',
-    'Accounts Payable',
-    'Accounts Receivable',
-    'Cash Management',
-    'Fixed Assets',
-    'Expense Management',
-    'Security',
-    'Financial Reporting',
-  ];
-
   final List<String> _statuses = ['Active', 'Inactive'];
 
   bool get isEditMode => widget.function != null;
@@ -54,21 +44,8 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
       _nameController.text = widget.function!.name;
       _descriptionController.text = widget.function!.description;
       
-      // Map module value to dropdown item
-      // Handle cases like "Module 1", "Module 2", etc. or direct module names
-      final moduleValue = widget.function!.module;
-      if (moduleValue.startsWith('Module ')) {
-        // Module is in format "Module X" which doesn't match dropdown items
-        // Set to null so dropdown shows hint (module is read-only in edit mode anyway)
-        _selectedModule = null;
-      } else {
-        // Check if the module value exists in our dropdown list
-        if (_modules.contains(moduleValue)) {
-          _selectedModule = moduleValue;
-        } else {
-          _selectedModule = null;
-        }
-      }
+      // Store the module value - will be matched against API modules when loaded
+      _selectedModule = widget.function!.module;
       
       _selectedStatus = widget.function!.status;
     }
@@ -87,8 +64,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
       _moduleError = _selectedModule == null;
     });
 
-    // if (_formKey.currentState!.validate() && _selectedModule != null) {
-    if (_formKey.currentState!.validate() ) {
+    if (_formKey.currentState!.validate() && _selectedModule != null) {
       setState(() => _isLoading = true);
       
       try {
@@ -103,6 +79,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
             id: widget.function!.id,
             name: _nameController.text.trim(),
             description: _descriptionController.text.trim(),
+            module: _selectedModule!,
             status: status,
             updatedBy: 'ADMIN', // You can get this from auth context
           );
@@ -122,8 +99,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
             code: _codeController.text.trim(),
             name: _nameController.text.trim(),
             description: _descriptionController.text.trim(),
-            // module: _selectedModule!,
-            module: "3",
+            module: _selectedModule!,
             status: status,
             createdBy: 'ADMIN', // You can get this from auth context
           );
@@ -201,7 +177,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                   ),
                   const SizedBox(height: 26),
                   _buildTwoColumnRow(
-                    _buildModuleField(isDark),
+                    _buildModuleField(isDark, ref),
                     _buildStatusField(isDark),
                     isMobile,
                   ),
@@ -378,7 +354,35 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
     );
   }
 
-  Widget _buildModuleField(bool isDark) {
+  Widget _buildModuleField(bool isDark, WidgetRef ref) {
+    final modulesState = ref.watch(modulesProvider);
+    final modulesNotifier = ref.read(modulesProvider.notifier);
+
+    // Load modules on first build
+    if (!modulesState.isLoading && modulesState.modules.isEmpty && modulesState.error == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        modulesNotifier.loadModules();
+      });
+    }
+
+    // Build module list from API
+    final moduleNames = modulesState.modules.map((m) => m.name).toList();
+    
+    // In edit mode, if the current module is not in the list, add it
+    String? selectedValue;
+    if (_selectedModule != null) {
+      if (moduleNames.contains(_selectedModule)) {
+        selectedValue = _selectedModule;
+      } else if (isEditMode) {
+        // In edit mode, keep the original module even if not in API list
+        selectedValue = _selectedModule;
+        if (!moduleNames.contains(_selectedModule)) {
+          // Add it temporarily to the list for display
+          moduleNames.insert(0, _selectedModule!);
+        }
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -396,9 +400,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: _selectedModule != null && _modules.contains(_selectedModule)
-                  ? _selectedModule
-                  : null,
+              value: selectedValue,
               isExpanded: true,
               hint: Padding(
                 padding: const EdgeInsets.only(left: 20),
@@ -413,9 +415,15 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                   ),
                 ),
               ),
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: Icon(Icons.keyboard_arrow_down, size: 20),
+              icon: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: modulesState.isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.keyboard_arrow_down, size: 20),
               ),
               dropdownColor:
                   isDark ? context.themeCardBackground : Colors.white,
@@ -426,7 +434,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                 color: isDark ? Colors.white : const Color(0xFF0F172B),
                 height: 1.24,
               ),
-              items: _modules.map((String module) {
+              items: moduleNames.map((String module) {
                 return DropdownMenuItem<String>(
                   value: module,
                   child: Padding(
@@ -435,7 +443,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                   ),
                 );
               }).toList(),
-              onChanged: isEditMode ? null : (value) {
+              onChanged: (value) {
                 setState(() {
                   _selectedModule = value;
                   _moduleError = false;
@@ -449,6 +457,19 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
             padding: const EdgeInsets.only(top: 4, left: 12),
             child: Text(
               'Required',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFFB2C36),
+              ),
+            ),
+          ),
+        if (modulesState.error != null && !isEditMode)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 12),
+            child: Text(
+              'Failed to load modules',
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,

@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 class PaginatedResponseDto<T> {
   final List<T> data;
   final PaginationMeta meta;
+  final ActivityData? activity;
 
   PaginatedResponseDto({
     required this.data,
     required this.meta,
+    this.activity,
   });
 
   factory PaginatedResponseDto.fromJson(
@@ -21,6 +23,26 @@ class PaginatedResponseDto<T> {
       meta: PaginationMeta.fromJson(
         json['meta'] as Map<String, dynamic>? ?? {},
       ),
+      activity: json['activity'] != null
+          ? ActivityData.fromJson(json['activity'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+class ActivityData {
+  final int totalActiveValue;
+  final int totalInactiveValue;
+
+  ActivityData({
+    required this.totalActiveValue,
+    required this.totalInactiveValue,
+  });
+
+  factory ActivityData.fromJson(Map<String, dynamic> json) {
+    return ActivityData(
+      totalActiveValue: json['total_active_value'] as int? ?? 0,
+      totalInactiveValue: json['total_inactive_value'] as int? ?? 0,
     );
   }
 }

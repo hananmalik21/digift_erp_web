@@ -12,6 +12,7 @@ class GetFunctionsUseCase {
     required int limit,
     String? search,
     String? module,
+    int? moduleId,
     String? status,
     Map<String, String>? dynamicFilters,
   }) {
@@ -20,6 +21,7 @@ class GetFunctionsUseCase {
       limit: limit,
       search: search,
       module: module,
+      moduleId: moduleId,
       status: status,
       dynamicFilters: dynamicFilters,
     );

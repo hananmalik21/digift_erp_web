@@ -88,10 +88,14 @@ class _FunctionsScreenState extends ConsumerState<FunctionsScreen> {
       print('Total items: ${functionsState.totalItems}');
       print('First function: ${functionsState.functions.first.category}');
       print('total pages: ${functionsState.totalPages}');
+      print('Total Active: ${functionsState.totalActiveValue}');
+      print('Total Inactive: ${functionsState.totalInactiveValue}');
     }
-    final activeFunctions =
+    
+    // Use API values if available, otherwise calculate from local data
+    final activeFunctions = functionsState.totalActiveValue ??
         functions.where((f) => f.status.toLowerCase() == 'Active'.toLowerCase()).length;
-    final inactiveFunctions =
+    final inactiveFunctions = functionsState.totalInactiveValue ??
         functions.where((f) => f.status.toLowerCase() == 'Inactive'.toLowerCase()).length;
     final glFunctions =
         functions.where((f) => f.module == 'General Ledger').length;

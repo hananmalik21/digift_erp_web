@@ -4,6 +4,7 @@ import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../core/widgets/more_filters_dialog.dart';
 import '../../../../../core/models/filter_model.dart';
 import '../providers/functions_provider.dart';
+import '../providers/modules_provider.dart';
 
 class FunctionsSearchAndFilters extends ConsumerStatefulWidget {
   final bool isDark;
@@ -285,7 +286,27 @@ class FunctionsModuleFilter extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final modulesState = ref.watch(modulesProvider);
+    final modulesNotifier = ref.read(modulesProvider.notifier);
     final functionsNotifier = ref.read(functionsProvider.notifier);
+
+    // Load modules on first build
+    if (!modulesState.isLoading && modulesState.modules.isEmpty && modulesState.error == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        modulesNotifier.loadModules();
+      });
+    }
+
+    // Build module list from API
+    final moduleItems = <String>['All Modules'];
+    if (modulesState.modules.isNotEmpty) {
+      moduleItems.addAll(modulesState.modules.map((m) => m.name));
+    } else if (modulesState.isLoading) {
+      // Keep "All Modules" while loading
+    } else {
+      // Fallback to empty list or show error state
+    }
+
     return Container(
       height: 42,
       decoration: BoxDecoration(
@@ -296,9 +317,15 @@ class FunctionsModuleFilter extends ConsumerWidget {
         child: DropdownButton<String>(
           value: selectedModule,
           isExpanded: true,
-          icon: const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.keyboard_arrow_down, size: 20),
+          icon: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: modulesState.isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.keyboard_arrow_down, size: 20),
           ),
           style: TextStyle(
             fontFamily: 'Inter',
@@ -308,29 +335,30 @@ class FunctionsModuleFilter extends ConsumerWidget {
             height: 1.23,
           ),
           dropdownColor: isDark ? context.themeCardBackground : Colors.white,
-          items: [
-            'All Modules',
-            'General Ledger',
-            'Accounts Payable',
-            'Accounts Receivable',
-            'Cash Management',
-            'Fixed Assets',
-            'Expense Management',
-            'Security',
-            'Financial Reporting',
-          ].map((String module) {
-            return DropdownMenuItem<String>(
-              value: module,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 21),
-                child: Text(module),
-              ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            onChanged(value!);
-            functionsNotifier.filterByModule(value);
-          },
+              items: moduleItems.map((String module) {
+                return DropdownMenuItem<String>(
+                  value: module,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 21),
+                    child: Text(module),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  onChanged(value);
+                  // Find module ID for the selected module
+                  int? moduleId;
+                  if (value != 'All Modules' && modulesState.modules.isNotEmpty) {
+                    final selectedModule = modulesState.modules.firstWhere(
+                      (m) => m.name == value,
+                      orElse: () => modulesState.modules.first,
+                    );
+                    moduleId = selectedModule.id;
+                  }
+                  functionsNotifier.filterByModule(value, moduleId: moduleId);
+                }
+              },
         ),
       ),
     );

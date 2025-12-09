@@ -6,6 +6,8 @@ class PaginatedResult<T> {
   final int itemsPerPage;
   final bool hasNextPage;
   final bool hasPreviousPage;
+  final int? totalActiveValue;
+  final int? totalInactiveValue;
 
   PaginatedResult({
     required this.data,
@@ -15,6 +17,8 @@ class PaginatedResult<T> {
     required this.itemsPerPage,
     required this.hasNextPage,
     required this.hasPreviousPage,
+    this.totalActiveValue,
+    this.totalInactiveValue,
   });
 }
 

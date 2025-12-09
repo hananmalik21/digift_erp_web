@@ -6,6 +6,7 @@ class FunctionDto {
   final String name;
   final String description;
   final String module;
+  final String moduleName;
   final String category;
   final String accessType;
   final String status;
@@ -18,6 +19,7 @@ class FunctionDto {
     required this.name,
     required this.description,
     required this.module,
+    required this.moduleName,
     required this.category,
     required this.accessType,
     required this.status,
@@ -44,9 +46,12 @@ class FunctionDto {
     
     // Module ID - we'll use the ID for now, or you can map it to module name later
     final moduleId = json['module_id']?.toString() ?? '';
-    final module = json['module']?.toString() ?? 
-                   json['module_name']?.toString() ?? 
-                   (moduleId.isNotEmpty ? 'Module $moduleId' : '');
+    final moduleName = json['module_name']?.toString() ?? 
+                       json['module']?.toString() ?? 
+                       '';
+    final module = moduleName.isNotEmpty 
+        ? moduleName 
+        : (moduleId.isNotEmpty ? 'Module $moduleId' : '');
     
     // Category and accessType might not be in API response, use defaults
     final category = json['category']?.toString() ?? 
@@ -84,6 +89,7 @@ class FunctionDto {
       name: functionName,
       description: description,
       module: module,
+      moduleName: moduleName,
       category: category,
       accessType: accessType,
       status: status,
@@ -99,6 +105,7 @@ class FunctionDto {
       'name': name,
       'description': description,
       'module': module,
+      'module_name': moduleName,
       'category': category,
       'accessType': accessType,
       'status': status,
@@ -113,7 +120,7 @@ class FunctionDto {
       code: code,
       name: name,
       description: description,
-      module: module,
+      module: moduleName.isNotEmpty ? moduleName : module,
       category: category,
       accessType: accessType,
       status: status,

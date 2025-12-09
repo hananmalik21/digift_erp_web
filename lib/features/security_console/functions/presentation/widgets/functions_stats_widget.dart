@@ -38,18 +38,6 @@ class FunctionsStatsCards extends StatelessWidget {
         'hasLeftBorder': true,
         'leftBorderColor': const Color(0xFF4A5565),
       },
-      {
-        'label': 'GL Functions',
-        'value': '$glFunctions',
-        'hasLeftBorder': true,
-        'leftBorderColor': const Color(0xFF155DFC),
-      },
-      {
-        'label': 'AP Functions',
-        'value': '$apFunctions',
-        'hasLeftBorder': true,
-        'leftBorderColor': const Color(0xFF9810FA),
-      },
     ];
 
     return LayoutBuilder(

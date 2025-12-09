@@ -1,3 +1,4 @@
+import 'package:digify_erp/features/security_console/functions/presentation/providers/modules_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/function_entity.dart';
 import '../../domain/repositories/function_repository.dart';
@@ -7,6 +8,7 @@ import '../../domain/usecases/update_function_usecase.dart';
 import '../../domain/usecases/delete_function_usecase.dart';
 import '../../data/repositories/function_repository_impl.dart';
 import '../../data/datasources/function_remote_datasource.dart';
+import '../../data/datasources/module_remote_datasource.dart';
 
 // Providers
 final functionRemoteDataSourceProvider = Provider<FunctionRemoteDataSource>(
@@ -16,6 +18,7 @@ final functionRemoteDataSourceProvider = Provider<FunctionRemoteDataSource>(
 final functionRepositoryProvider = Provider<FunctionRepository>(
   (ref) => FunctionRepositoryImpl(
     ref.watch(functionRemoteDataSourceProvider),
+    moduleRemoteDataSource: ref.watch(moduleRemoteDataSourceProvider),
   ),
 );
 
@@ -64,9 +67,12 @@ class FunctionsState {
   final bool hasNextPage;
   final bool hasPreviousPage;
   final String? searchQuery;
-  final String? selectedModule;
+  final String? selectedModule; // Keep for UI display
+  final int? selectedModuleId; // Store module ID for API
   final String? selectedStatus;
   final List<String> selectedFilterKeys;
+  final int? totalActiveValue;
+  final int? totalInactiveValue;
 
   FunctionsState({
     this.functions = const [],
@@ -80,8 +86,11 @@ class FunctionsState {
     this.hasPreviousPage = false,
     this.searchQuery,
     this.selectedModule,
+    this.selectedModuleId,
     this.selectedStatus,
     this.selectedFilterKeys = const [],
+    this.totalActiveValue,
+    this.totalInactiveValue,
   });
 
   FunctionsState copyWith({
@@ -96,8 +105,13 @@ class FunctionsState {
     bool? hasPreviousPage,
     String? searchQuery,
     String? selectedModule,
+    int? selectedModuleId,
     String? selectedStatus,
     List<String>? selectedFilterKeys,
+    int? totalActiveValue,
+    int? totalInactiveValue,
+    bool clearModule = false,
+    bool clearModuleId = false,
   }) {
     return FunctionsState(
       functions: functions ?? this.functions,
@@ -110,9 +124,12 @@ class FunctionsState {
       hasNextPage: hasNextPage ?? this.hasNextPage,
       hasPreviousPage: hasPreviousPage ?? this.hasPreviousPage,
       searchQuery: searchQuery ?? this.searchQuery,
-      selectedModule: selectedModule ?? this.selectedModule,
+      selectedModule: clearModule ? null : (selectedModule ?? this.selectedModule),
+      selectedModuleId: clearModuleId ? null : (selectedModuleId ?? this.selectedModuleId),
       selectedStatus: selectedStatus ?? this.selectedStatus,
       selectedFilterKeys: selectedFilterKeys ?? this.selectedFilterKeys,
+      totalActiveValue: totalActiveValue ?? this.totalActiveValue,
+      totalInactiveValue: totalInactiveValue ?? this.totalInactiveValue,
     );
   }
 }
@@ -135,6 +152,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
     int? page,
     String? search,
     String? module,
+    int? moduleId,
     String? status, // This is the API status: null, "ACTIVE", or "INACTIVE"
     List<String>? selectedFilterKeys,
   }) async {
@@ -145,14 +163,20 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
             ? 'Active'
             : 'Inactive';
     
+    // Explicitly clear module and moduleId when null is passed (for "All Modules")
+    final shouldClearModule = module == null;
+    
     state = state.copyWith(
       isLoading: true,
       error: null,
       currentPage: page ?? state.currentPage,
       searchQuery: search ?? state.searchQuery,
-      selectedModule: module ?? state.selectedModule,
+      selectedModule: shouldClearModule ? null : module,
+      selectedModuleId: shouldClearModule ? null : moduleId,
       selectedStatus: uiStatus,
       selectedFilterKeys: selectedFilterKeys ?? state.selectedFilterKeys,
+      clearModule: shouldClearModule,
+      clearModuleId: shouldClearModule,
     );
 
     // Build dynamic filters map if a filter key is selected
@@ -174,6 +198,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
         limit: state.itemsPerPage,
         search: dynamicFilters == null ? state.searchQuery : null, // Only use search if no dynamic filters
         module: state.selectedModule,
+        moduleId: state.selectedModuleId,
         // Pass status separately if not already in dynamicFilters, or if no dynamicFilters exist
         status: (dynamicFilters != null && dynamicFilters.containsKey('status')) ? null : status,
         dynamicFilters: dynamicFilters,
@@ -188,6 +213,8 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
         itemsPerPage: result.itemsPerPage,
         hasNextPage: result.hasNextPage,
         hasPreviousPage: result.hasPreviousPage,
+        totalActiveValue: result.totalActiveValue,
+        totalInactiveValue: result.totalInactiveValue,
       );
     } catch (e) {
       state = state.copyWith(
@@ -208,6 +235,8 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
               : 'INACTIVE';
       await loadFunctions(
         page: state.currentPage + 1,
+        module: state.selectedModule,
+        moduleId: state.selectedModuleId,
         status: apiStatus,
       );
     }
@@ -223,6 +252,8 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
               : 'INACTIVE';
       await loadFunctions(
         page: state.currentPage - 1,
+        module: state.selectedModule,
+        moduleId: state.selectedModuleId,
         status: apiStatus,
       );
     }
@@ -238,6 +269,8 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
               : 'INACTIVE';
       await loadFunctions(
         page: page,
+        module: state.selectedModule,
+        moduleId: state.selectedModuleId,
         status: apiStatus,
       );
     }
@@ -253,20 +286,26 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
     await loadFunctions(
       search: query,
       page: 1,
+      module: state.selectedModule,
+      moduleId: state.selectedModuleId,
       selectedFilterKeys: selectedFilterKeys ?? state.selectedFilterKeys,
       status: apiStatus,
     );
   }
 
-  Future<void> filterByModule(String module) async {
+  Future<void> filterByModule(String module, {int? moduleId}) async {
     // Map UI status to API status
     final apiStatus = state.selectedStatus == 'All Status'
         ? null
         : state.selectedStatus == 'Active'
             ? 'ACTIVE'
             : 'INACTIVE';
+    
+    // Clear moduleId when "All Modules" is selected
+    final isAllModules = module == 'All Modules';
     await loadFunctions(
-      module: module,
+      module: isAllModules ? null : module,
+      moduleId: isAllModules ? null : moduleId,
       page: 1,
       status: apiStatus,
     );
@@ -279,7 +318,12 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
         : status == 'Active' 
             ? 'ACTIVE' 
             : 'INACTIVE';
-    await loadFunctions(status: mappedStatus, page: 1);
+    await loadFunctions(
+      status: mappedStatus,
+      page: 1,
+      module: state.selectedModule,
+      moduleId: state.selectedModuleId,
+    );
   }
 
   Future<void> refresh() async {
@@ -295,6 +339,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
       page: 1,
       search: state.searchQuery,
       module: state.selectedModule,
+      moduleId: state.selectedModuleId,
       status: apiStatus,
       selectedFilterKeys: state.selectedFilterKeys,
     );
@@ -336,6 +381,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
   Future<FunctionEntity> updateFunction({
     required String id,
     required String name,
+    required String module,
     required String description,
     required String status,
     String? updatedBy,
@@ -349,7 +395,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
           code: '',
           name: name,
           description: description,
-          module: '',
+          module: module,
           category: '',
           accessType: '',
           status: status,
@@ -363,7 +409,7 @@ class FunctionsNotifier extends StateNotifier<FunctionsState> {
         code: existingFunction.code,
         name: name,
         description: description,
-        module: existingFunction.module,
+        module: module,
         category: existingFunction.category,
         accessType: existingFunction.accessType,
         status: status,

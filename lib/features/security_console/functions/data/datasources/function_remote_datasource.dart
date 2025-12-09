@@ -10,6 +10,7 @@ abstract class FunctionRemoteDataSource {
     required int limit,
     String? search,
     String? module,
+    int? moduleId,
     String? status,
     Map<String, String>? dynamicFilters,
   });
@@ -29,6 +30,7 @@ abstract class FunctionRemoteDataSource {
     required String description,
     required String status,
     required String updatedBy,
+    int? moduleId,
   });
 
   Future<void> deleteFunction(String id);
@@ -47,6 +49,7 @@ class FunctionRemoteDataSourceImpl implements FunctionRemoteDataSource {
     required int limit,
     String? search,
     String? module,
+    int? moduleId,
     String? status,
     Map<String, String>? dynamicFilters,
   }) async {
@@ -63,7 +66,10 @@ class FunctionRemoteDataSourceImpl implements FunctionRemoteDataSource {
       queryParams['search'] = search;
     }
     
-    if (module != null && module.isNotEmpty && module != 'All Modules') {
+    // Use moduleId if provided, otherwise fall back to module name
+    if (moduleId != null) {
+      queryParams['moduleId'] = moduleId.toString();
+    } else if (module != null && module.isNotEmpty && module != 'All Modules') {
       queryParams['module'] = module;
     }
     // Only add status if it's not already in dynamicFilters
@@ -179,6 +185,12 @@ class FunctionRemoteDataSourceImpl implements FunctionRemoteDataSource {
         };
       }
 
+      // Extract activity data if present
+      Map<String, dynamic>? activityData;
+      if (response.containsKey('activity') && response['activity'] is Map) {
+        activityData = response['activity'] as Map<String, dynamic>;
+      }
+
       // Create a properly formatted response
       final formattedResponse = {
         'data': dataList ?? [],
@@ -190,6 +202,7 @@ class FunctionRemoteDataSourceImpl implements FunctionRemoteDataSource {
           'hasNextPage': false,
           'hasPreviousPage': false,
         },
+        if (activityData != null) 'activity': activityData,
       };
 
       return PaginatedResponseDto<FunctionDto>.fromJson(
@@ -246,6 +259,7 @@ class FunctionRemoteDataSourceImpl implements FunctionRemoteDataSource {
     required String description,
     required String status,
     required String updatedBy,
+    int? moduleId,
   }) async {
     try {
       final requestBody = {
@@ -253,6 +267,7 @@ class FunctionRemoteDataSourceImpl implements FunctionRemoteDataSource {
         'description': description,
         'status': status.toUpperCase(), // Ensure ACTIVE/INACTIVE
         'updatedBy': updatedBy,
+        if (moduleId != null) 'moduleId': moduleId,
       };
 
       if (kDebugMode) {

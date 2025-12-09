@@ -7,6 +7,7 @@ abstract class FunctionRepository {
     required int limit,
     String? search,
     String? module,
+    int? moduleId,
     String? status,
     Map<String, String>? dynamicFilters,
   });
