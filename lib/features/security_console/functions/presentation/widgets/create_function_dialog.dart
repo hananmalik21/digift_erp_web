@@ -16,11 +16,11 @@ class CreateFunctionDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CreateFunctionDialog> createState() => _CreateFunctionDialogState();
+  ConsumerState<CreateFunctionDialog> createState() =>
+      _CreateFunctionDialogState();
 }
 
 class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
-  final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -29,101 +29,131 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   String _selectedStatus = 'Active';
 
   bool _isLoading = false;
-  bool _moduleError = false;
 
   final List<String> _statuses = ['Active', 'Inactive'];
 
   bool get isEditMode => widget.function != null;
 
+  // New: track if form is "logically valid" for enabling the button
+  bool _isFormValid = false;
+
   @override
   void initState() {
     super.initState();
+
     // Pre-populate fields if in edit mode
     if (isEditMode && widget.function != null) {
       _codeController.text = widget.function!.code;
       _nameController.text = widget.function!.name;
       _descriptionController.text = widget.function!.description;
-      
+
       // Store the module value - will be matched against API modules when loaded
       _selectedModule = widget.function!.module;
-      
+
       _selectedStatus = widget.function!.status;
     }
+
+    // Listen to field changes to update button state
+    _codeController.addListener(_onFieldChanged);
+    _nameController.addListener(_onFieldChanged);
+    _descriptionController.addListener(_onFieldChanged);
+
+    // Initial validation based on pre-filled values (especially for edit mode)
+    _isFormValid = _computeFormValid();
   }
 
   @override
   void dispose() {
+    _codeController.removeListener(_onFieldChanged);
+    _nameController.removeListener(_onFieldChanged);
+    _descriptionController.removeListener(_onFieldChanged);
+
     _codeController.dispose();
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleCreate() async {
+  void _onFieldChanged() {
     setState(() {
-      _moduleError = _selectedModule == null;
+      _isFormValid = _computeFormValid();
+    });
+  }
+
+  bool _computeFormValid() {
+    final codeNotEmpty = _codeController.text.trim().isNotEmpty;
+    final nameNotEmpty = _nameController.text.trim().isNotEmpty;
+    final moduleSelected = _selectedModule != null && _selectedModule!.isNotEmpty;
+
+    // Description is optional; status has a default
+    return codeNotEmpty && nameNotEmpty && moduleSelected;
+  }
+
+  Future<void> _handleCreate() async {
+    // Extra guard: if somehow pressed while invalid, just ignore
+    if (!_isFormValid) return;
+
+    setState(() {
+      _isLoading = true;
     });
 
-    if (_formKey.currentState!.validate() && _selectedModule != null) {
-      setState(() => _isLoading = true);
-      
-      try {
-        final functionsNotifier = ref.read(functionsProvider.notifier);
-        
-        // Map status to API format
-        final status = _selectedStatus == 'Active' ? 'ACTIVE' : 'INACTIVE';
-        
-        if (isEditMode && widget.function != null) {
-          // Update existing function
-          await functionsNotifier.updateFunction(
-            id: widget.function!.id,
-            name: _nameController.text.trim(),
-            description: _descriptionController.text.trim(),
-            module: _selectedModule!,
-            status: status,
-            updatedBy: 'ADMIN', // You can get this from auth context
-          );
+    try {
+      final functionsNotifier = ref.read(functionsProvider.notifier);
 
-          if (mounted) {
-            Navigator.of(context).pop(true); // Return true to indicate success
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Function updated successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } else {
-          // Create new function
-          await functionsNotifier.createFunction(
-            code: _codeController.text.trim(),
-            name: _nameController.text.trim(),
-            description: _descriptionController.text.trim(),
-            module: _selectedModule!,
-            status: status,
-            createdBy: 'ADMIN', // You can get this from auth context
-          );
+      // Map status to API format
+      final status = _selectedStatus == 'Active' ? 'ACTIVE' : 'INACTIVE';
 
-          if (mounted) {
-            Navigator.of(context).pop(true); // Return true to indicate success
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Function created successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        }
-      } catch (e) {
+      if (isEditMode && widget.function != null) {
+        // Update existing function
+        await functionsNotifier.updateFunction(
+          id: widget.function!.id,
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          module: _selectedModule!,
+          status: status,
+          updatedBy: 'ADMIN', // You can get this from auth context
+        );
+
         if (mounted) {
-          setState(() => _isLoading = false);
+          Navigator.of(context).pop(true); // Return true to indicate success
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to ${isEditMode ? 'update' : 'create'} function: ${e.toString()}'),
-              backgroundColor: Colors.red,
+            const SnackBar(
+              content: Text('Function updated successfully'),
+              backgroundColor: Colors.green,
             ),
           );
         }
+      } else {
+        // Create new function
+        await functionsNotifier.createFunction(
+          code: _codeController.text.trim(),
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim(),
+          module: _selectedModule!,
+          status: status,
+          createdBy: 'ADMIN', // You can get this from auth context
+        );
+
+        if (mounted) {
+          Navigator.of(context).pop(true); // Return true to indicate success
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Function created successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Failed to ${isEditMode ? 'update' : 'create'} function: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -162,31 +192,29 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(context, isDark),
-                  const SizedBox(height: 28),
-                  _buildTwoColumnRow(
-                    _buildFunctionCodeField(isDark),
-                    _buildFunctionNameField(isDark),
-                    isMobile,
-                  ),
-                  const SizedBox(height: 26),
-                  _buildTwoColumnRow(
-                    _buildModuleField(isDark, ref),
-                    _buildStatusField(isDark),
-                    isMobile,
-                  ),
-                  const SizedBox(height: 26),
-                  _buildDescriptionField(isDark),
-                  const SizedBox(height: 46),
-                  _buildButtons(context, isDark, isMobile),
-                ],
-              ),
+            // Form wrapper removed (no validation); just a Column
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(context, isDark),
+                const SizedBox(height: 28),
+                _buildTwoColumnRow(
+                  _buildFunctionCodeField(isDark),
+                  _buildFunctionNameField(isDark),
+                  isMobile,
+                ),
+                const SizedBox(height: 26),
+                _buildTwoColumnRow(
+                  _buildModuleField(isDark, ref),
+                  _buildStatusField(isDark),
+                  isMobile,
+                ),
+                const SizedBox(height: 26),
+                _buildDescriptionField(isDark),
+                const SizedBox(height: 46),
+                _buildButtons(context, isDark, isMobile),
+              ],
             ),
           ),
         ),
@@ -213,7 +241,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
               ),
               const SizedBox(height: 6),
               Text(
-                isEditMode 
+                isEditMode
                     ? 'Update function details'
                     : 'Define a new system function',
                 style: TextStyle(
@@ -296,12 +324,6 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                 vertical: 10.5,
               ),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Required';
-              }
-              return null;
-            },
           ),
         ),
       ],
@@ -342,12 +364,6 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                 vertical: 10.5,
               ),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Required';
-              }
-              return null;
-            },
           ),
         ),
       ],
@@ -365,12 +381,12 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
           onChanged: (moduleName, moduleId) {
             setState(() {
               _selectedModule = moduleName;
-              _moduleError = false;
+              _isFormValid = _computeFormValid();
             });
           },
           isDark: isDark,
           height: 39,
-          showError: _moduleError,
+          showError: false, // no validation error highlight
           hintText: 'Select Module',
         ),
       ],
@@ -398,7 +414,7 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
                 child: Icon(Icons.keyboard_arrow_down, size: 20),
               ),
               dropdownColor:
-                  isDark ? context.themeCardBackground : Colors.white,
+              isDark ? context.themeCardBackground : Colors.white,
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 15.1,
@@ -555,13 +571,18 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   }
 
   Widget _buildCreateButton(BuildContext context, bool isDark) {
+    final isDisabled = !_isFormValid || _isLoading;
+    final iconColor = isDisabled ? const Color(0xFF9CA3AF) : Colors.white;
+
     return SizedBox(
       width: 161.21,
       height: 36,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleCreate,
+        onPressed: isDisabled ? null : _handleCreate,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF030213),
+          backgroundColor: isDisabled
+              ? const Color(0xFF030213).withValues(alpha: 0.5)
+              : const Color(0xFF030213),
           foregroundColor: Colors.white,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
@@ -571,39 +592,41 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
         ),
         child: _isLoading
             ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SvgPicture.asset(
-                    Assets.icons.addIcon.path,
-                    width: 16,
-                    height: 16,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isEditMode ? 'Update Function' : 'Create Function',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13.8,
-                      fontWeight: FontWeight.w500,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              isEditMode
+                  ? Assets.icons.editIcon.path
+                  : Assets.icons.addIcon.path,
+              width: 16,
+              height: 16,
+              colorFilter: ColorFilter.mode(
+                iconColor,
+                BlendMode.srcIn,
               ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isEditMode ? 'Update Function' : 'Create Function',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13.8,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+                color: isDisabled ? const Color(0xFF9CA3AF) : Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../../core/extensions/date_extensions.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../../../../gen/assets.gen.dart';
 import '../../data/models/function_model.dart';
 import '../providers/functions_provider.dart';
 import 'create_function_dialog.dart';
+import 'function_details_dialog.dart';
 import 'functions_empty_state_widget.dart';
 
 class FunctionsDataTable extends StatelessWidget {
@@ -40,7 +40,7 @@ class FunctionsDataTable extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final availableWidth = constraints.maxWidth;
-            final minTableWidth = 1216.92;
+            final minTableWidth = 1068.0;
             final tableWidth =
                 availableWidth > minTableWidth ? availableWidth : minTableWidth;
 
@@ -104,8 +104,7 @@ class FunctionsTableHeader extends StatelessWidget {
           FunctionsHeaderCellMultiLine(text: 'FUNCTION\nNAME', width: 144.46),
           FunctionsHeaderCell(text: 'MODULE', width: 166.77),
           FunctionsHeaderCell(text: 'DESCRIPTION', width: 300),
-          FunctionsHeaderCell(text: 'STATUS', width: 101.01),
-          FunctionsHeaderCell(text: 'LAST UPDATED', width: 148.91),
+          FunctionsHeaderCell(text: 'STATUS', width: 120),
           FunctionsHeaderCell(text: 'ACTIONS', width: 112),
         ],
       ),
@@ -241,13 +240,7 @@ class FunctionsTableRow extends StatelessWidget {
           ),
           FunctionsStatusCell(
             status: function.status,
-            width: 101.01,
-            isDark: isDark,
-          ),
-          FunctionsUpdatedCell(
-            date: function.updatedDate,
-            by: function.updatedBy,
-            width: 148.91,
+            width: 120,
             isDark: isDark,
           ),
           FunctionsActionsCell(
@@ -460,7 +453,7 @@ class FunctionsStatusBadge extends StatelessWidget {
     return Container(
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      constraints: const BoxConstraints(maxWidth: 73),
+      constraints: const BoxConstraints(maxWidth: 110),
       decoration: BoxDecoration(
         color: isActive ? const Color(0xFFD1FAE5) : const Color(0xFFF3F4F6),
         border: Border.all(
@@ -494,62 +487,6 @@ class FunctionsStatusBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class FunctionsUpdatedCell extends StatelessWidget {
-  final String date;
-  final String by;
-  final double width;
-  final bool isDark;
-
-  const FunctionsUpdatedCell({
-    super.key,
-    required this.date,
-    required this.by,
-    required this.width,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Format the date string
-    final formattedDate = date.toFormattedDate();
-
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 0),
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              formattedDate,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: isDark ? Colors.white : const Color(0xFF101828),
-                height: 1.67,
-              ),
-            ),
-            Text(
-              'by $by',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11.8,
-                fontWeight: FontWeight.w400,
-                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6A7282),
-                height: 1.19,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -595,6 +532,22 @@ class FunctionsActionButtons extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        IconButton(
+          icon: SvgPicture.asset(
+            Assets.icons.visibleIcon.path,
+            width: 16,
+            height: 16,
+            colorFilter: ColorFilter.mode(
+              isDark ? Colors.white : const Color(0xFF0F172B),
+              BlendMode.srcIn,
+            ),
+          ),
+          onPressed: () {
+            FunctionDetailsDialog.show(context, function);
+          },
+          padding: const EdgeInsets.all(8),
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
         IconButton(
           icon: SvgPicture.asset(
             Assets.icons.editIcon.path,
