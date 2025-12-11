@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../constants/app_colors.dart';
+import '../../gen/assets.gen.dart';
+import '../theme/theme_extensions.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -12,6 +14,8 @@ class CustomButton extends StatelessWidget {
   final double? width;
   final double? height;
   final String? loadingText;
+  final bool isEditMode; // For showing edit icon instead of add icon
+  final bool isDisabled; // Explicit disabled state
 
   const CustomButton({
     super.key,
@@ -24,6 +28,8 @@ class CustomButton extends StatelessWidget {
     this.width,
     this.height,
     this.loadingText,
+    this.isEditMode = false,
+    this.isDisabled = false,
   });
 
   factory CustomButton.primary({
@@ -74,65 +80,72 @@ class CustomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final buttonHeight = height ?? 42.0;
+    final disabled = isDisabled || isLoading || onPressed == null;
+    
+    // Icon color based on disabled state
+    final iconColor = disabled 
+        ? const Color(0xFF9CA3AF) 
+        : (isPrimary ? Colors.white : (isDark ? Colors.white : AppColors.textPrimary));
+    
+    // Text color based on disabled state
+    final textColor = disabled 
+        ? const Color(0xFF9CA3AF) 
+        : (isPrimary ? Colors.white : (isDark ? Colors.white : AppColors.textPrimary));
 
     Widget buttonChild;
 
     if (isLoading) {
-      buttonChild = Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isPrimary ? Colors.white : AppColors.primary,
-              ),
-            ),
+      buttonChild = SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            isPrimary ? Colors.white : AppColors.primary,
           ),
-          if (loadingText != null) ...[
-            const SizedBox(width: 8),
-            Text(
-              loadingText ?? '',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: isPrimary ? Colors.white : AppColors.primary,
-              ),
-            ),
-          ],
-        ],
+        ),
       );
     } else {
+      // Determine which icon to show
+      String? effectiveSvgIcon = svgIcon;
+      if (isEditMode && svgIcon == null && icon == null) {
+        effectiveSvgIcon = Assets.icons.editIcon.path;
+      } else if (!isEditMode && isPrimary && svgIcon == null && icon == null) {
+        effectiveSvgIcon = Assets.icons.addIcon.path;
+      }
+
       buttonChild = Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 18),
+            Icon(icon, size: 16, color: iconColor),
             const SizedBox(width: 8),
           ],
-          if (svgIcon != null) ...[
+          if (effectiveSvgIcon != null) ...[
             SvgPicture.asset(
-              svgIcon!,
-              width: 18,
-              height: 18,
+              effectiveSvgIcon,
+              width: 16,
+              height: 16,
               colorFilter: ColorFilter.mode(
-                isPrimary ? Colors.white : AppColors.primary,
+                iconColor,
                 BlendMode.srcIn,
               ),
             ),
             const SizedBox(width: 8),
           ],
-          Text(
-            text,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: height != null && height! <= 36 ? 13.8 : 15,
+                fontWeight: FontWeight.w500,
+                height: height != null && height! <= 36 ? 1.45 : null,
+                color: textColor,
+              ),
             ),
           ),
         ],
@@ -144,35 +157,34 @@ class CustomButton extends StatelessWidget {
       height: buttonHeight,
       child: isPrimary
           ? ElevatedButton(
-              onPressed: isLoading ? null : onPressed,
+              onPressed: disabled ? null : onPressed,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: disabled
+                    ? const Color(0xFF030213).withValues(alpha: 0.5)
+                    : const Color(0xFF030213),
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
+                padding: EdgeInsets.zero,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               child: buttonChild,
             )
           : OutlinedButton(
-              onPressed: isLoading ? null : onPressed,
+              onPressed: disabled ? null : onPressed,
               style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.white : AppColors.textPrimary,
-                backgroundColor: isDark
-                    ? AppColors.cardBackgroundDark
+                foregroundColor: textColor,
+                backgroundColor: isDark 
+                    ? context.themeCardBackground 
                     : Colors.white,
                 side: BorderSide(
-                  color: isDark
-                      ? AppColors.borderGreyDark
-                      : AppColors.borderGrey,
+                  color: Colors.black.withValues(alpha: 0.1),
                 ),
+                padding: EdgeInsets.zero,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               child: buttonChild,

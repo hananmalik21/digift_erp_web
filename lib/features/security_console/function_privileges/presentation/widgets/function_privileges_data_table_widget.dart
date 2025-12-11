@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../../core/theme/theme_extensions.dart';
-import '../../../../../gen/assets.gen.dart';
 import '../../../../../core/widgets/delete_confirmation_dialog.dart';
+import '../../../../../core/widgets/custom_table.dart';
+import '../../../../../core/widgets/custom_status_cell.dart';
+import '../../../../../core/widgets/custom_action_cell.dart';
 import '../../data/models/function_privilege_model.dart';
 import 'create_privilege_dialog.dart';
 import 'privilege_details_dialog.dart';
@@ -23,154 +23,121 @@ class FunctionPrivilegesDataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final maxTableHeight = (size.height - 500).clamp(300.0, 600.0);
+    final columns = [
+      const CustomTableColumn(headerText: 'PRIVILEGE CODE', width: 220),
+      const CustomTableColumn(headerText: 'PRIVILEGE NAME', width: 320),
+      const CustomTableColumn(headerText: 'MODULE', width: 140),
+      const CustomTableColumn(headerText: 'FUNCTION', width: 110),
+      const CustomTableColumn(headerText: 'OPERATION', width: 108),
+      const CustomTableColumn(headerText: 'STATUS', width: 100),
+      const CustomTableColumn(headerText: 'ACTIONS', width: 200, alignment: Alignment.center),
+    ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? context.themeCardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 1226.27,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTableHeader(isDark),
-                SizedBox(
-                  height: maxTableHeight,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: privileges
-                          .map((privilege) => FunctionPrivilegesTableRow(
-                                privilege: privilege,
-                                isDark: isDark,
-                                onEdit: onEdit,
-                                onDelete: onDelete,
-                              ))
-                          .toList(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    final rows = privileges.map((privilege) {
+      return FunctionPrivilegesTableRow(
+        privilege: privilege,
+        isDark: isDark,
+        onEdit: onEdit,
+        onDelete: onDelete,
+      ).buildRowCells(context);
+    }).toList();
 
-  Widget _buildTableHeader(bool isDark) {
-    return Container(
-      height: 64.5,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF9FAFB),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? const Color(0xFF374151)
-                : const Color(0xFFE5E7EB),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          _buildHeaderCell('PRIVILEGE CODE', 220),
-          _buildHeaderCell('PRIVILEGE NAME', 320),
-          _buildHeaderCell('MODULE', 140),
-          _buildHeaderCell('FUNCTION', 110),
-          _buildHeaderCell('OPERATION', 108),
-          _buildHeaderCell('STATUS', 100),
-          _buildHeaderCell('ACTIONS', 108),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderCell(String text, double width) {
-    return Container(
-      width: width,
-      alignment: text == 'ACTIONS' ? Alignment.center : Alignment.centerLeft,
-      padding: EdgeInsets.only(
-        left: text == 'ACTIONS' ? 0 : 16,
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF364153),
-          letterSpacing: 0.6,
-          height: 1.33,
-        ),
-      ),
+    return CustomTable(
+      columns: columns,
+      rows: rows,
+      isDark: isDark,
+      minTableWidth: 1226.27,
+      headerHeight: 64.5,
+      rowHeight: 61,
     );
   }
 }
 
-class FunctionPrivilegesTableRow extends StatelessWidget {
+class FunctionPrivilegesTableRow {
   final FunctionPrivilegeModel privilege;
   final bool isDark;
   final Future<void> Function(FunctionPrivilegeModel)? onEdit;
   final Future<void> Function(String) onDelete;
 
-  const FunctionPrivilegesTableRow({
-    super.key,
+  FunctionPrivilegesTableRow({
     required this.privilege,
     required this.isDark,
     this.onEdit,
     required this.onDelete,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 61,
-      decoration: BoxDecoration(
-        color: isDark ? context.themeCardBackground : Colors.white,
-        border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? const Color(0xFF374151)
-                : const Color(0xFFE5E7EB),
-          ),
-        ),
+  List<Widget> buildRowCells(BuildContext context) {
+    return [
+      _buildDataCell(
+        privilege.code,
+        220,
+        12,
+        FontWeight.w400,
+        isDark,
       ),
-      child: Row(
-        children: [
-          _buildDataCell(
-            privilege.code,
-            220,
-            12,
-            FontWeight.w400,
-            isDark,
-          ),
-          _buildNameDescriptionCell(
-            privilege.name,
-            privilege.description,
-            320,
-            isDark,
-          ),
-          _buildModuleCell(privilege.module, 140, isDark),
-          _buildDataCell(
-            privilege.function,
-            110,
-            11.8,
-            FontWeight.w400,
-            isDark,
-          ),
-          _buildOperationCell(privilege.operation, 108, isDark),
-          _buildStatusCell(privilege.status, 100, isDark),
-          _buildActionsCell(context, privilege, 108, isDark),
-        ],
+      _buildNameDescriptionCell(
+        privilege.name,
+        privilege.description,
+        320,
+        isDark,
       ),
-    );
+      _buildModuleCell(privilege.module, 140, isDark),
+      _buildDataCell(
+        privilege.function,
+        110,
+        11.8,
+        FontWeight.w400,
+        isDark,
+      ),
+      _buildOperationCell(privilege.operation, 108, isDark),
+      CustomStatusCell(
+        status: privilege.status,
+        isDark: isDark,
+        width: 100,
+      ),
+      CustomActionCell(
+        onView: () => PrivilegeDetailsDialog.show(context, privilege),
+        onEdit: () async {
+          if (onEdit != null) {
+            await onEdit!(privilege);
+          } else {
+            final result = await showDialog(
+              context: context,
+              builder: (context) => CreatePrivilegeDialog(privilege: privilege),
+            );
+            if (result == true && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Privilege updated successfully'),
+                  backgroundColor: Color(0xFF00A63E),
+                ),
+              );
+            }
+          }
+        },
+        onDelete: () async {
+          final result = await DeleteConfirmationDialog.show(
+            context,
+            title: 'Delete Function Privilege',
+            message: 'Are you sure you want to delete this privilege? This action cannot be undone.',
+            itemName: privilege.name,
+            onConfirm: () async {
+              await onDelete(privilege.id);
+              return true;
+            },
+          );
+          if (result == true && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Privilege deleted successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        },
+        isDark: isDark,
+      ),
+    ];
   }
 
   Widget _buildDataCell(
@@ -349,162 +316,4 @@ class FunctionPrivilegesTableRow extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusCell(String status, double width, bool isDark) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.only(left: 16),
-      child: _buildStatusBadge(status, isDark),
-    );
-  }
-
-  Widget _buildStatusBadge(String status, bool isDark) {
-    final isActive = status == 'Active';
-
-    return Container(
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: isActive
-            ? const Color(0xFFD1FAE5)
-            : const Color(0xFFF3F4F6),
-        border: Border.all(
-          color: isActive
-              ? const Color(0xFFB9F8CF)
-              : const Color(0xFFE5E7EB),
-        ),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_circle,
-            size: 12,
-            color: isActive
-                ? const Color(0xFF008236)
-                : const Color(0xFF6B7280),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            status,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11.8,
-              fontWeight: FontWeight.w400,
-              color: isActive
-                  ? const Color(0xFF008236)
-                  : const Color(0xFF6B7280),
-              height: 1.36,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCell(
-    BuildContext context,
-    FunctionPrivilegeModel privilege,
-    double width,
-    bool isDark,
-  ) {
-    return Container(
-      width: width,
-      alignment: Alignment.center,
-      child: _buildActionButtons(context, privilege, isDark),
-    );
-  }
-
-  Widget _buildActionButtons(
-    BuildContext context,
-    FunctionPrivilegeModel privilege,
-    bool isDark,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: SvgPicture.asset(
-            Assets.icons.visibleIcon.path,
-            width: 16,
-            height: 16,
-            colorFilter: ColorFilter.mode(
-              isDark ? Colors.white : const Color(0xFF0F172B),
-              BlendMode.srcIn,
-            ),
-          ),
-          onPressed: () {
-            PrivilegeDetailsDialog.show(context, privilege);
-          },
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-        IconButton(
-          icon: SvgPicture.asset(
-            Assets.icons.editIcon.path,
-            width: 16,
-            height: 16,
-            colorFilter: ColorFilter.mode(
-              isDark ? Colors.white : const Color(0xFF0F172B),
-              BlendMode.srcIn,
-            ),
-          ),
-          onPressed: () async {
-            if (onEdit != null) {
-              await onEdit!(privilege);
-            } else {
-              final result = await showDialog(
-                context: context,
-                builder: (context) => CreatePrivilegeDialog(privilege: privilege),
-              );
-              if (result == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Privilege updated successfully'),
-                    backgroundColor: Color(0xFF00A63E),
-                  ),
-                );
-              }
-            }
-          },
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-        IconButton(
-          icon: SvgPicture.asset(
-            Assets.icons.deleteIcon.path,
-            width: 16,
-            height: 16,
-            colorFilter: ColorFilter.mode(
-              isDark ? Colors.white : const Color(0xFF0F172B),
-              BlendMode.srcIn,
-            ),
-          ),
-          onPressed: () async {
-            final result = await DeleteConfirmationDialog.show(
-              context,
-              title: 'Delete Function Privilege',
-              message: 'Are you sure you want to delete this privilege? This action cannot be undone.',
-              itemName: privilege.name,
-              onConfirm: () async {
-                await onDelete(privilege.id);
-                return true;
-              },
-            );
-
-            if (result == true && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Privilege deleted successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          },
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-      ],
-    );
-  }
 }

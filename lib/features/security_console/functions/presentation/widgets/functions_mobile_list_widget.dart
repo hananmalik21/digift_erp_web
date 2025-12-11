@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/theme_extensions.dart';
+import '../../../../../core/widgets/custom_status_cell.dart';
+import '../../../../../core/widgets/custom_action_cell.dart';
+import '../../../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../data/models/function_model.dart';
+import '../providers/functions_provider.dart';
 import 'functions_empty_state_widget.dart';
-import 'functions_data_table_widget.dart';
+import 'create_function_dialog.dart';
+import 'function_details_dialog.dart';
 
 class FunctionsMobileList extends StatelessWidget {
   final bool isDark;
@@ -118,7 +123,10 @@ class FunctionsMobileCard extends ConsumerWidget {
                   ),
                 ],
               ),
-              FunctionsStatusBadge(status: function.status, isDark: isDark),
+              CustomStatusCell(
+                status: function.status,
+                isDark: isDark,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -156,8 +164,32 @@ class FunctionsMobileCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              FunctionsActionButtons(
-                function: function,
+              CustomActionCell(
+                onView: () => FunctionDetailsDialog.show(context, function),
+                onEdit: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => CreateFunctionDialog(function: function),
+                  );
+                },
+                onDelete: () async {
+                  final functionsNotifier = ref.read(functionsProvider.notifier);
+                  final result = await DeleteConfirmationDialog.show(
+                    context,
+                    title: 'Delete Function',
+                    message: 'Are you sure you want to delete this function? This action cannot be undone.',
+                    itemName: function.name,
+                    onConfirm: () => functionsNotifier.deleteFunction(function.id),
+                  );
+                  if (result == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Function deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
                 isDark: isDark,
               ),
             ],

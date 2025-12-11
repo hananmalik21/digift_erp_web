@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
-import '../../../../../gen/assets.gen.dart';
 import '../../../../../core/widgets/paginated_module_dropdown.dart';
+import '../../../../../core/widgets/custom_text_field.dart';
+import '../../../../../core/widgets/custom_button.dart';
 import '../../data/models/function_model.dart';
 import '../providers/functions_provider.dart';
 
@@ -290,83 +290,30 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   }
 
   Widget _buildFunctionCodeField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Function Code', true, isDark),
-        const SizedBox(height: 6),
-        Container(
+    return IgnorePointer(
+      ignoring: isEditMode, // Disable in edit mode
+      child: Opacity(
+        opacity: isEditMode ? 0.6 : 1.0,
+        child: CustomTextField(
+          controller: _codeController,
+          labelText: 'Function Code',
+          isRequired: true,
+          hintText: 'e.g., GL_JOURNAL_CREATE',
           height: 42,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormField(
-            controller: _codeController,
-            enabled: !isEditMode, // Disable in edit mode
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15.8,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
-            ),
-            decoration: InputDecoration(
-              hintText: 'e.g., GL_JOURNAL_CREATE',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.8,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF0A0A0A).withValues(alpha: 0.5),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10.5,
-              ),
-            ),
-          ),
+          fontSize: 15.8,
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildFunctionNameField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Function Name', true, isDark),
-        const SizedBox(height: 6),
-        Container(
-          height: 42,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormField(
-            controller: _nameController,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15.3,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
-            ),
-            decoration: InputDecoration(
-              hintText: 'e.g., Create Journal Entry',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.3,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF0A0A0A).withValues(alpha: 0.5),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10.5,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return CustomTextField(
+      controller: _nameController,
+      labelText: 'Function Name',
+      isRequired: true,
+      hintText: 'e.g., Create Journal Entry',
+      height: 42,
+      fontSize: 15.3,
     );
   }
 
@@ -444,47 +391,13 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   }
 
   Widget _buildDescriptionField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel('Description', false, isDark),
-        const SizedBox(height: 6),
-        Container(
-          height: 90,
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DC)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: TextFormField(
-            controller: _descriptionController,
-            maxLines: null,
-            expands: true,
-            textAlignVertical: TextAlignVertical.top,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 15.4,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white : const Color(0xFF0F172B),
-              height: 1.56,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Enter function description...',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15.4,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF0A0A0A).withValues(alpha: 0.5),
-                height: 1.56,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return CustomTextField(
+      controller: _descriptionController,
+      labelText: 'Description',
+      hintText: 'Enter function description',
+      height: 90,
+      fontSize: 15.4,
+      maxLines: 4,
     );
   }
 
@@ -542,91 +455,25 @@ class _CreateFunctionDialogState extends ConsumerState<CreateFunctionDialog> {
   }
 
   Widget _buildCancelButton(BuildContext context, bool isDark) {
-    return SizedBox(
+    return CustomButton.outlined(
+      text: 'Cancel',
+      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+      isLoading: false,
       width: 79.35,
       height: 36,
-      child: OutlinedButton(
-        onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isDark ? context.themeCardBackground : Colors.white,
-          foregroundColor: isDark ? Colors.white : const Color(0xFF0F172B),
-          side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Text(
-          'Cancel',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 13.7,
-            fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white : const Color(0xFF0F172B),
-            height: 1.46,
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildCreateButton(BuildContext context, bool isDark) {
-    final isDisabled = !_isFormValid || _isLoading;
-    final iconColor = isDisabled ? const Color(0xFF9CA3AF) : Colors.white;
-
-    return SizedBox(
+    return CustomButton(
+      text: isEditMode ? 'Update Function' : 'Create Function',
+      isEditMode: isEditMode,
+      isDisabled: !_isFormValid || _isLoading,
+      isLoading: _isLoading,
+      onPressed: _handleCreate,
       width: 161.21,
       height: 36,
-      child: ElevatedButton(
-        onPressed: isDisabled ? null : _handleCreate,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isDisabled
-              ? const Color(0xFF030213).withValues(alpha: 0.5)
-              : const Color(0xFF030213),
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          elevation: 0,
-        ),
-        child: _isLoading
-            ? const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
-            : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              isEditMode
-                  ? Assets.icons.editIcon.path
-                  : Assets.icons.addIcon.path,
-              width: 16,
-              height: 16,
-              colorFilter: ColorFilter.mode(
-                iconColor,
-                BlendMode.srcIn,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              isEditMode ? 'Update Function' : 'Create Function',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13.8,
-                fontWeight: FontWeight.w500,
-                height: 1.45,
-                color: isDisabled ? const Color(0xFF9CA3AF) : Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
+      isPrimary: true,
     );
   }
 }

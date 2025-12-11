@@ -1,10 +1,10 @@
+import 'package:digify_erp/core/widgets/paginated_module_dropdown.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
-import '../../../../../gen/assets.gen.dart';
 import '../../../../../core/widgets/paginated_status_dropdown.dart';
+import '../../../../../core/widgets/custom_text_field.dart';
+import '../../../../../core/widgets/custom_button.dart';
 import '../../data/models/function_privilege_model.dart';
-import 'paginated_module_dropdown.dart';
 import 'paginated_function_dropdown.dart';
 import 'paginated_operation_dropdown.dart';
 
@@ -303,66 +303,38 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
   }
 
   Widget _codeField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label("Privilege Code", true),
-        const SizedBox(height: 6),
-        SizedBox(
+    return IgnorePointer(
+      ignoring: isEditMode, // read-only in edit mode
+      child: Opacity(
+        opacity: isEditMode ? 0.6 : 1.0,
+        child: CustomTextField(
+          controller: _codeController,
+          labelText: "Privilege Code",
+          isRequired: true,
+          hintText: "e.g., GL_JE_CREATE",
           height: 36,
-          child: TextFormField(
-            controller: _codeController,
-            enabled: !isEditMode, // read-only in edit mode (same look)
-            decoration: _textFieldDecoration(
-              isDark,
-              hint: "e.g., GL_JE_CREATE",
-            ),
-          ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _nameField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label("Privilege Name", true),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 36,
-          child: TextFormField(
-            controller: _nameController,
-            decoration: _textFieldDecoration(
-              isDark,
-              hint: "e.g., Create Journal Entry",
-            ),
-          ),
-        ),
-      ],
+    return CustomTextField(
+      controller: _nameController,
+      labelText: "Privilege Name",
+      isRequired: true,
+      hintText: "e.g., Create Journal Entry",
+      height: 36,
     );
   }
 
   Widget _descriptionField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label("Description", false),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 80,
-          child: TextFormField(
-            controller: _descriptionController,
-            expands: true,
-            maxLines: null,
-            textAlignVertical: TextAlignVertical.top,
-            decoration: _textFieldDecoration(
-              isDark,
-              hint: "Enter privilege description...",
-            ),
-          ),
-        ),
-      ],
+    return CustomTextField(
+      controller: _descriptionController,
+      labelText: "Description",
+      hintText: "Enter privilege description...",
+      height: 80,
+      maxLines: 4,
     );
   }
 
@@ -474,108 +446,26 @@ class _CreatePrivilegeDialogState extends State<CreatePrivilegeDialog> {
     );
   }
 
-  InputDecoration _textFieldDecoration(bool isDark, {required String hint}) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: isDark ? const Color(0xFF374151) : const Color(0xFFF3F3F5),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      contentPadding:
-      const EdgeInsets.symmetric(horizontal: 12, vertical: 8.75),
-    );
-  }
 
   Widget _buttons(BuildContext ctx, bool isDark, bool isMobile) {
-    final isDisabled = !_isFormValid || _isLoading;
-    final iconColor = isDisabled ? const Color(0xFF9CA3AF) : Colors.white;
-
     // CREATE / UPDATE
-    final createBtn = SizedBox(
+    final createBtn = CustomButton(
+      text: isEditMode ? "Update Privilege" : "Create Privilege",
+      isEditMode: isEditMode,
+      isDisabled: !_isFormValid || _isLoading,
+      isLoading: _isLoading,
+      onPressed: _handleSubmit,
       width: isMobile ? double.infinity : 160.8,
       height: 36,
-      child: ElevatedButton(
-        onPressed: isDisabled ? null : _handleSubmit,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isDisabled
-              ? const Color(0xFF030213).withValues(alpha: 0.5)
-              : const Color(0xFF030213),
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          elevation: 0,
-        ),
-        child: _isLoading
-            ? const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
-            : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              isEditMode
-                  ? Assets.icons.editIcon.path
-                  : Assets.icons.addIcon.path,
-              width: 16,
-              height: 16,
-              colorFilter: ColorFilter.mode(
-                iconColor,
-                BlendMode.srcIn,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                isEditMode ? "Update Privilege" : "Create Privilege",
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: "Inter",
-                  fontSize: 13.8,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      isPrimary: true,
     );
 
     // CANCEL
-    final cancelBtn = SizedBox(
+    final cancelBtn = CustomButton.outlined(
+      text: "Cancel",
+      onPressed: _isLoading ? null : () => Navigator.pop(ctx),
       width: isMobile ? double.infinity : 90,
       height: 36,
-      child: OutlinedButton(
-        onPressed: _isLoading ? null : () => Navigator.pop(ctx),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isDark ? context.themeCardBackground : Colors.white,
-          foregroundColor: isDark ? Colors.white : const Color(0xFF0F172B),
-          side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: const Text(
-          "Cancel",
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: "Inter",
-            fontSize: 13.7,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
     );
 
     return isMobile

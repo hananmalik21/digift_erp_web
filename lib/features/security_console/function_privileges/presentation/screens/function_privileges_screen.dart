@@ -78,13 +78,7 @@ class _FunctionPrivilegesScreenState extends State<FunctionPrivilegesScreen> wit
     _searchController.addListener(_onSearchChanged);
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // Reload data when app comes back to foreground
-      _loadFunctionPrivileges(isRefresh: false);
-    }
-  }
+
 
   @override
   void dispose() {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
-import '../../../../../gen/assets.gen.dart';
 import '../../../../../core/widgets/delete_confirmation_dialog.dart';
+import '../../../../../core/widgets/custom_status_cell.dart';
+import '../../../../../core/widgets/custom_action_cell.dart';
 import '../../data/models/function_privilege_model.dart';
 import 'create_privilege_dialog.dart';
 import 'privilege_details_dialog.dart';
@@ -127,7 +127,10 @@ class FunctionPrivilegesMobileCard extends StatelessWidget {
                 ],
               ),
               _buildOperationBadge(privilege.operation, isDark),
-              _buildStatusBadge(privilege.status, isDark),
+              CustomStatusCell(
+                status: privilege.status,
+                isDark: isDark,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -135,7 +138,48 @@ class FunctionPrivilegesMobileCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const SizedBox.shrink(),
-              _buildActionButtons(context, privilege, isDark),
+              CustomActionCell(
+                onView: () => PrivilegeDetailsDialog.show(context, privilege),
+                onEdit: () async {
+                  if (onEdit != null) {
+                    await onEdit!(privilege);
+                  } else {
+                    final result = await showDialog(
+                      context: context,
+                      builder: (context) => CreatePrivilegeDialog(privilege: privilege),
+                    );
+                    if (result == true && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Privilege updated successfully'),
+                          backgroundColor: Color(0xFF00A63E),
+                        ),
+                      );
+                    }
+                  }
+                },
+                onDelete: () async {
+                  final result = await DeleteConfirmationDialog.show(
+                    context,
+                    title: 'Delete Function Privilege',
+                    message: 'Are you sure you want to delete this privilege? This action cannot be undone.',
+                    itemName: privilege.name,
+                    onConfirm: () async {
+                      await onDelete(privilege.id);
+                      return true;
+                    },
+                  );
+                  if (result == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Privilege deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                isDark: isDark,
+              ),
             ],
           ),
         ],
@@ -214,141 +258,4 @@ class FunctionPrivilegesMobileCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(String status, bool isDark) {
-    final isActive = status == 'Active';
-
-    return Container(
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: isActive
-            ? const Color(0xFFD1FAE5)
-            : const Color(0xFFF3F4F6),
-        border: Border.all(
-          color: isActive
-              ? const Color(0xFFB9F8CF)
-              : const Color(0xFFE5E7EB),
-        ),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_circle,
-            size: 12,
-            color: isActive
-                ? const Color(0xFF008236)
-                : const Color(0xFF6B7280),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            status,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11.8,
-              fontWeight: FontWeight.w400,
-              color: isActive
-                  ? const Color(0xFF008236)
-                  : const Color(0xFF6B7280),
-              height: 1.36,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(
-    BuildContext context,
-    FunctionPrivilegeModel privilege,
-    bool isDark,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: SvgPicture.asset(
-            Assets.icons.visibleIcon.path,
-            width: 16,
-            height: 16,
-            colorFilter: ColorFilter.mode(
-              isDark ? Colors.white : const Color(0xFF0F172B),
-              BlendMode.srcIn,
-            ),
-          ),
-          onPressed: () {
-            PrivilegeDetailsDialog.show(context, privilege);
-          },
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-        IconButton(
-          icon: SvgPicture.asset(
-            Assets.icons.editIcon.path,
-            width: 16,
-            height: 16,
-            colorFilter: ColorFilter.mode(
-              isDark ? Colors.white : const Color(0xFF0F172B),
-              BlendMode.srcIn,
-            ),
-          ),
-          onPressed: () async {
-            if (onEdit != null) {
-              await onEdit!(privilege);
-            } else {
-              final result = await showDialog(
-                context: context,
-                builder: (context) => CreatePrivilegeDialog(privilege: privilege),
-              );
-              if (result == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Privilege updated successfully'),
-                    backgroundColor: Color(0xFF00A63E),
-                  ),
-                );
-              }
-            }
-          },
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-        IconButton(
-          icon: SvgPicture.asset(
-            Assets.icons.deleteIcon.path,
-            width: 16,
-            height: 16,
-            colorFilter: ColorFilter.mode(
-              isDark ? Colors.white : const Color(0xFF0F172B),
-              BlendMode.srcIn,
-            ),
-          ),
-          onPressed: () async {
-            final result = await DeleteConfirmationDialog.show(
-              context,
-              title: 'Delete Function Privilege',
-              message: 'Are you sure you want to delete this privilege? This action cannot be undone.',
-              itemName: privilege.name,
-              onConfirm: () async {
-                await onDelete(privilege.id);
-                return true;
-              },
-            );
-
-            if (result == true && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Privilege deleted successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          },
-          padding: const EdgeInsets.all(6),
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-      ],
-    );
-  }
 }
