@@ -8,3 +8,4 @@ flutter build web \
   --release
 
 echo "Build complete! Output: build/web"
+

@@ -6,7 +6,8 @@ class ApiConfig {
       return envUrl;
     }
     // Default to localhost for development
-    return 'http://localhost:3000';
+    // return 'http://localhost:3000';
+    return 'https://digift-erp-backend-5.onrender.com';
   }
 
   static const Duration connectTimeout = Duration(seconds: 30);

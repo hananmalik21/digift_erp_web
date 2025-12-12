@@ -9,3 +9,4 @@
     "build:web:development:debug": "flutter build web --dart-define=API_BASE_URL=https://digift-erp-backend-5.onrender.com"
   }
 }
+

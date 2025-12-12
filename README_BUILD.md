@@ -62,3 +62,4 @@ flutter run -d chrome --dart-define=API_BASE_URL=https://digift-erp-backend-5.on
 The API base URL is configured in `lib/core/network/api_config.dart` and reads from the `API_BASE_URL` environment variable passed via `--dart-define`.
 
 If no `API_BASE_URL` is provided, it defaults to `http://localhost:3000`.
+
