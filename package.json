@@ -1,0 +1,11 @@
+{
+  "name": "digify_erp",
+  "version": "1.0.0",
+  "description": "Digify ERP - Enterprise Resource Planning System",
+  "scripts": {
+    "build:web:localhost": "flutter build web --dart-define=API_BASE_URL=http://localhost:3000 --release",
+    "build:web:development": "flutter build web --dart-define=API_BASE_URL=https://digift-erp-backend-5.onrender.com --release",
+    "build:web:localhost:debug": "flutter build web --dart-define=API_BASE_URL=http://localhost:3000",
+    "build:web:development:debug": "flutter build web --dart-define=API_BASE_URL=https://digift-erp-backend-5.onrender.com"
+  }
+}

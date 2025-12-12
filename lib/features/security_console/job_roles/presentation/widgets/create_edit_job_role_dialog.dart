@@ -3,6 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../gen/assets.gen.dart';
 import '../../data/models/job_role_model.dart';
+import '../../data/models/job_role_dto.dart';
+import '../../data/datasources/job_role_remote_datasource.dart';
+import '../services/job_role_dialog_service.dart';
 
 class CreateEditJobRoleDialog extends StatefulWidget {
   final JobRoleModel? jobRole;
@@ -24,27 +27,116 @@ class _CreateEditJobRoleDialogState extends State<CreateEditJobRoleDialog> {
   final _jobRoleSearchController = TextEditingController();
 
   String _selectedStatus = 'Active';
-  int _selectedDutyRoles = 0;
+  List<DutyRoleReference> _availableDutyRoles = [];
+  List<DutyRoleReference> _selectedDutyRoles = [];
+  List<DutyRoleReference> _filteredDutyRoles = [];
   int _selectedJobRoles = 0;
   int _totalPrivileges = 0;
 
   bool _isLoading = false;
+  bool _isLoadingDutyRoles = false;
+  String? _dutyRolesError;
 
   final List<String> _statuses = ['Active', 'Inactive'];
+  late final JobRoleDialogService _dialogService;
 
   @override
   void initState() {
     super.initState();
+    final dataSource = JobRoleRemoteDataSourceImpl();
+    _dialogService = JobRoleDialogService(dataSource);
+    
     if (widget.jobRole != null) {
       _nameController.text = widget.jobRole!.name;
       _codeController.text = widget.jobRole!.code;
       _descriptionController.text = widget.jobRole!.description;
       _departmentController.text = widget.jobRole!.department;
       _selectedStatus = widget.jobRole!.status;
-      _selectedDutyRoles = widget.jobRole!.dutyRoles.length;
       _selectedJobRoles = widget.jobRole!.inheritsFrom?.length ?? 0;
       _totalPrivileges = widget.jobRole!.privilegesCount;
     }
+    
+    _loadDutyRoles();
+    _dutyRoleSearchController.addListener(_filterDutyRoles);
+  }
+
+  Future<void> _loadDutyRoles() async {
+    setState(() {
+      _isLoadingDutyRoles = true;
+      _dutyRolesError = null;
+    });
+
+    try {
+      final dutyRoles = await _dialogService.loadDutyRoles();
+      setState(() {
+        _availableDutyRoles = dutyRoles;
+        _filteredDutyRoles = dutyRoles;
+        
+        // If editing, try to match existing duty roles
+        if (widget.jobRole != null) {
+          _matchExistingDutyRoles();
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _dutyRolesError = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoadingDutyRoles = false;
+      });
+    }
+  }
+
+  void _matchExistingDutyRoles() {
+    if (widget.jobRole == null) return;
+    
+    // Try to match duty role names from the job role
+    final existingDutyRoleNames = widget.jobRole!.dutyRoles;
+    final matched = <DutyRoleReference>[];
+    
+    for (final name in existingDutyRoleNames) {
+      final matchedRole = _availableDutyRoles.firstWhere(
+        (dr) => dr.dutyRoleName.toLowerCase().trim() == name.toLowerCase().trim(),
+        orElse: () => _availableDutyRoles.firstWhere(
+          (dr) => dr.dutyRoleName.toLowerCase().contains(name.toLowerCase().trim()) ||
+                 name.toLowerCase().trim().contains(dr.dutyRoleName.toLowerCase()),
+          orElse: () => DutyRoleReference(dutyRoleId: 0, dutyRoleName: name, roleCode: ''),
+        ),
+      );
+      
+      if (matchedRole.dutyRoleId > 0 && !matched.any((dr) => dr.dutyRoleId == matchedRole.dutyRoleId)) {
+        matched.add(matchedRole);
+      }
+    }
+    
+    setState(() {
+      _selectedDutyRoles = matched;
+    });
+  }
+
+  void _filterDutyRoles() {
+    final query = _dutyRoleSearchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredDutyRoles = _availableDutyRoles;
+      } else {
+        _filteredDutyRoles = _availableDutyRoles.where((dr) {
+          return dr.dutyRoleName.toLowerCase().contains(query) ||
+                 dr.roleCode.toLowerCase().contains(query);
+        }).toList();
+      }
+    });
+  }
+
+  void _toggleDutyRoleSelection(DutyRoleReference dutyRole) {
+    setState(() {
+      if (_selectedDutyRoles.any((dr) => dr.dutyRoleId == dutyRole.dutyRoleId)) {
+        _selectedDutyRoles.removeWhere((dr) => dr.dutyRoleId == dutyRole.dutyRoleId);
+      } else {
+        _selectedDutyRoles.add(dutyRole);
+      }
+    });
   }
 
   @override
@@ -58,22 +150,79 @@ class _CreateEditJobRoleDialogState extends State<CreateEditJobRoleDialog> {
     super.dispose();
   }
 
-  void _handleSave() {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+  Future<void> _handleSave() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    if (_selectedDutyRoles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one duty role'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-      // Simulate API call
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.of(context).pop({
-            'name': _nameController.text,
-            'code': _codeController.text,
-            'description': _descriptionController.text,
-            'department': _departmentController.text,
-            'status': _selectedStatus,
-          });
-        }
-      });
+    setState(() => _isLoading = true);
+
+    try {
+      final dutyRolesArray = _selectedDutyRoles.map((dr) => dr.dutyRoleId).toList();
+      final status = _selectedStatus; // API expects "Active" or "Inactive"
+      
+      JobRoleModel? result;
+      
+      if (widget.jobRole != null) {
+        // Update existing job role
+        final jobRoleId = int.tryParse(widget.jobRole!.id) ?? 0;
+        result = await _dialogService.updateJobRole(
+          jobRoleId: jobRoleId,
+          jobRoleCode: _codeController.text.trim(),
+          jobRoleName: _nameController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty 
+              ? null 
+              : _descriptionController.text.trim(),
+          department: _departmentController.text.trim().isEmpty 
+              ? null 
+              : _departmentController.text.trim(),
+          status: status,
+          isSystemRole: 'N',
+          dutyRolesArray: dutyRolesArray,
+          updatedBy: 'ADMIN',
+          selectedDutyRoles: _selectedDutyRoles,
+          originalRole: widget.jobRole,
+        );
+      } else {
+        // Create new job role
+        result = await _dialogService.createJobRole(
+          jobRoleCode: _codeController.text.trim(),
+          jobRoleName: _nameController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty 
+              ? null 
+              : _descriptionController.text.trim(),
+          department: _departmentController.text.trim().isEmpty 
+              ? null 
+              : _departmentController.text.trim(),
+          status: status,
+          isSystemRole: 'N',
+          dutyRolesArray: dutyRolesArray,
+          createdBy: 'ADMIN',
+          selectedDutyRoles: _selectedDutyRoles,
+        );
+      }
+
+      if (mounted && result != null) {
+        Navigator.of(context).pop(result); // Return the created/updated job role
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -505,7 +654,7 @@ class _CreateEditJobRoleDialogState extends State<CreateEditJobRoleDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$_selectedDutyRoles selected',
+                  '${_selectedDutyRoles.length} selected',
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 12,
@@ -518,14 +667,49 @@ class _CreateEditJobRoleDialogState extends State<CreateEditJobRoleDialog> {
             ],
           ),
           const SizedBox(height: 4),
-          Container(
-            height: 24,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF9F5FF),
-              borderRadius: BorderRadius.circular(8),
+          // Selected duty roles chips
+          if (_selectedDutyRoles.isNotEmpty) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _selectedDutyRoles.map((dr) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F5FF),
+                    border: Border.all(color: const Color(0xFFE9D4FF)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        dr.dutyRoleName,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF8200DB),
+                          height: 1.33,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _toggleDutyRoleSelection(dr),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Color(0xFF8200DB),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
-          ),
-          const SizedBox(height: 26),
+            const SizedBox(height: 16),
+          ],
+          const SizedBox(height: 10),
           const Text(
             'Search Duty Roles',
             style: TextStyle(
@@ -567,6 +751,107 @@ class _CreateEditJobRoleDialogState extends State<CreateEditJobRoleDialog> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          // Duty roles list
+          if (_isLoadingDutyRoles)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_dutyRolesError != null)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Error loading duty roles: $_dutyRolesError',
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
+          else if (_filteredDutyRoles.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'No duty roles found',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13.6,
+                  color: Color(0xFF717182),
+                ),
+              ),
+            )
+          else
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _filteredDutyRoles.length,
+                itemBuilder: (context, index) {
+                  final dutyRole = _filteredDutyRoles[index];
+                  final isSelected = _selectedDutyRoles.any(
+                    (dr) => dr.dutyRoleId == dutyRole.dutyRoleId,
+                  );
+                  
+                  return InkWell(
+                    onTap: () => _toggleDutyRoleSelection(dutyRole),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                            ? const Color(0xFFF9F5FF) 
+                            : Colors.transparent,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.black.withValues(alpha: 0.1),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                            size: 20,
+                            color: isSelected 
+                                ? const Color(0xFF8200DB) 
+                                : const Color(0xFF717182),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  dutyRole.dutyRoleName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13.6,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xFF0F172B),
+                                  ),
+                                ),
+                                Text(
+                                  dutyRole.roleCode,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xFF717182),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -718,7 +1003,7 @@ class _CreateEditJobRoleDialogState extends State<CreateEditJobRoleDialog> {
           Row(
             children: [
               Expanded(
-                child: _buildSummaryItem('Duty Roles', '$_selectedDutyRoles'),
+                child: _buildSummaryItem('Duty Roles', '${_selectedDutyRoles.length}'),
               ),
               Expanded(
                 child: _buildSummaryItem('Inherited Job Roles', '$_selectedJobRoles'),

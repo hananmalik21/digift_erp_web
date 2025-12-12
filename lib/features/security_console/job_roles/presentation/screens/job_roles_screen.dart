@@ -1,112 +1,121 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../gen/assets.gen.dart';
 import '../../data/models/job_role_model.dart';
+import '../../data/datasources/job_role_remote_datasource.dart';
+import '../providers/job_roles_provider.dart';
 import '../widgets/create_edit_job_role_dialog.dart';
+import '../../../function_privileges/presentation/widgets/function_privileges_footer_widget.dart';
 
-class JobRolesScreen extends StatefulWidget {
+class JobRolesScreen extends ConsumerStatefulWidget {
   const JobRolesScreen({super.key});
 
   @override
-  State<JobRolesScreen> createState() => _JobRolesScreenState();
+  ConsumerState<JobRolesScreen> createState() => _JobRolesScreenState();
 }
 
-class _JobRolesScreenState extends State<JobRolesScreen> {
+class _JobRolesScreenState extends ConsumerState<JobRolesScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _selectedDepartment = 'All';
-  List<JobRoleModel> _jobRoles = [];
-  List<JobRoleModel> _filteredJobRoles = [];
+  Timer? _searchDebounceTimer;
 
-  final List<String> _departments = ['All', 'Finance', 'Treasury', 'Audit'];
-
-  @override
-  void initState() {
-    super.initState();
-    _jobRoles = JobRoleModel.getSampleData();
-    _filteredJobRoles = _jobRoles;
-    _searchController.addListener(_filterJobRoles);
-  }
+  // Local provider - autoDispose ensures it's disposed when widget is removed
+  // Data will be loaded every time the tab is visited
+  final _localJobRolesProvider = StateNotifierProvider.autoDispose<JobRolesNotifier, JobRolesState>(
+    (ref) {
+      final dataSource = JobRoleRemoteDataSourceImpl();
+      return JobRolesNotifier(dataSource);
+    },
+  );
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _filterJobRoles() {
-    setState(() {
-      _filteredJobRoles = _jobRoles.where((role) {
-        final matchesSearch =
-            _searchController.text.isEmpty ||
-            role.name.toLowerCase().contains(
-              _searchController.text.toLowerCase(),
-            ) ||
-            role.code.toLowerCase().contains(
-              _searchController.text.toLowerCase(),
-            ) ||
-            role.description.toLowerCase().contains(
-              _searchController.text.toLowerCase(),
-            );
-
-        final matchesDepartment =
-            _selectedDepartment == 'All' ||
-            role.department == _selectedDepartment;
-
-        return matchesSearch && matchesDepartment;
-      }).toList();
+  void _onSearchChanged(String value) {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      ref.read(_localJobRolesProvider.notifier).search(value);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(_localJobRolesProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
-    final totalJobRoles = _jobRoles.length;
-    final activeJobRoles = _jobRoles.where((r) => r.status == 'Active').length;
-    final totalUsers = _jobRoles.fold<int>(
+    final totalJobRoles = state.totalItems;
+    final activeJobRoles = state.jobRoles.where((r) => r.status == 'Active' || r.status == 'ACTIVE').length;
+    final totalUsers = state.jobRoles.fold<int>(
       0,
       (sum, role) => sum + role.usersAssigned,
     );
-    final avgDutyRoles = _jobRoles.isEmpty
+    final avgDutyRoles = state.jobRoles.isEmpty
         ? 0
-        : (_jobRoles.fold<int>(0, (sum, role) => sum + role.dutyRoles.length) /
-                  _jobRoles.length)
+        : (state.jobRoles.fold<int>(0, (sum, role) => sum + role.dutyRoles.length) /
+                  state.jobRoles.length)
               .round();
 
     return Scaffold(
       backgroundColor: isDark
           ? context.themeBackground
           : const Color(0xFFF9FAFB),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context, isDark, isMobile),
-            const SizedBox(height: 24),
-            _buildStatsCards(
-              context,
-              isDark,
-              isMobile,
-              totalJobRoles,
-              activeJobRoles,
-              totalUsers,
-              avgDutyRoles,
+      body: state.isLoading && state.jobRoles.isEmpty
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark ? Colors.white : const Color(0xFF030213),
+              ),
+            )
+          : SingleChildScrollView(
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context, isDark, isMobile, state),
+                  const SizedBox(height: 24),
+                  _buildStatsCards(
+                    context,
+                    isDark,
+                    isMobile,
+                    totalJobRoles,
+                    activeJobRoles,
+                    totalUsers,
+                    avgDutyRoles,
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSearchAndFilters(context, isDark, isMobile),
+                  const SizedBox(height: 24),
+                  _buildJobRolesGrid(context, isDark, isMobile, state),
+                  if (state.totalItems > 0) ...[
+                    const SizedBox(height: 16),
+                    FunctionPrivilegesFooter(
+                      isDark: isDark,
+                      total: state.totalItems,
+                      showing: state.jobRoles.length,
+                      isLoading: state.isPaginationLoading,
+                      currentPage: state.currentPage,
+                      totalPages: state.totalPages,
+                      hasNextPage: state.hasNextPage,
+                      hasPreviousPage: state.hasPreviousPage,
+                      onNextPage: () => ref.read(_localJobRolesProvider.notifier).nextPage(),
+                      onPreviousPage: () => ref.read(_localJobRolesProvider.notifier).previousPage(),
+                      onGoToPage: (page) => ref.read(_localJobRolesProvider.notifier).goToPage(page),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-            _buildSearchAndFilters(context, isDark, isMobile),
-            const SizedBox(height: 24),
-            _buildJobRolesGrid(context, isDark, isMobile),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark, bool isMobile) {
+  Widget _buildHeader(BuildContext context, bool isDark, bool isMobile, JobRolesState state) {
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,11 +240,15 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
       width: 160.69,
       height: 36,
       child: ElevatedButton(
-        onPressed: () {
-          showDialog(
+        onPressed: () async {
+          final result = await showDialog(
             context: context,
             builder: (context) => const CreateEditJobRoleDialog(),
           );
+          if (result != null && result is JobRoleModel && mounted) {
+            // Add locally after successful create
+            ref.read(_localJobRolesProvider.notifier).addJobRoleLocally(result);
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF030213),
@@ -431,11 +444,15 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
     bool isDark,
     bool isMobile,
   ) {
+    final state = ref.watch(_localJobRolesProvider);
+    final departments = ['All', 'Finance', 'Treasury', 'Audit'];
+
     Widget _searchField() {
       return SizedBox(
         height: 36,
         child: TextField(
           controller: _searchController,
+          onChanged: _onSearchChanged,
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 13.7,
@@ -482,11 +499,11 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
     final chipsRow = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: _departments.map((department) {
-          final isLast = department == _departments.last;
+        children: departments.map((department) {
+          final isLast = department == departments.last;
           return Padding(
             padding: EdgeInsets.only(right: isLast ? 0 : 8),
-            child: _buildDepartmentButton(department, isDark),
+            child: _buildDepartmentButton(department, isDark, state),
           );
         }).toList(),
       ),
@@ -518,16 +535,15 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
     );
   }
 
-  Widget _buildDepartmentButton(String department, bool isDark) {
-    final isSelected = department == _selectedDepartment;
+  Widget _buildDepartmentButton(String department, bool isDark, JobRolesState state) {
+    final isSelected = department == (state.selectedDepartment ?? 'All');
 
     return IntrinsicWidth(
       child: GestureDetector(
         onTap: () {
-          setState(() {
-            _selectedDepartment = department;
-            _filterJobRoles();
-          });
+          ref.read(_localJobRolesProvider.notifier).filterByDepartment(
+            department == 'All' ? null : department,
+          );
         },
         child: Container(
           height: 32,
@@ -564,8 +580,8 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
     );
   }
 
-  Widget _buildJobRolesGrid(BuildContext context, bool isDark, bool isMobile) {
-    if (_filteredJobRoles.isEmpty) {
+  Widget _buildJobRolesGrid(BuildContext context, bool isDark, bool isMobile, JobRolesState state) {
+    if (state.jobRoles.isEmpty && !state.isLoading) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(48),
@@ -584,11 +600,11 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
 
     if (isMobile) {
       return Column(
-        children: _filteredJobRoles
+        children: state.jobRoles
             .map(
               (role) => Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: _buildJobRoleCard(context, role, isDark),
+                child: _buildJobRoleCard(context, role, isDark, state),
               ),
             )
             .toList(),
@@ -600,23 +616,24 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
         final columns = constraints.maxWidth < 900 ? 1 : 3;
         final cards = <Widget>[];
 
-        for (int i = 0; i < _filteredJobRoles.length; i += columns) {
+        for (int i = 0; i < state.jobRoles.length; i += columns) {
           final rowCards = <Widget>[];
           for (
             int j = 0;
-            j < columns && i + j < _filteredJobRoles.length;
+            j < columns && i + j < state.jobRoles.length;
             j++
           ) {
             rowCards.add(
               Expanded(
                 child: _buildJobRoleCard(
                   context,
-                  _filteredJobRoles[i + j],
+                  state.jobRoles[i + j],
                   isDark,
+                  state,
                 ),
               ),
             );
-            if (j < columns - 1 && i + j + 1 < _filteredJobRoles.length) {
+            if (j < columns - 1 && i + j + 1 < state.jobRoles.length) {
               rowCards.add(const SizedBox(width: 16));
             }
           }
@@ -633,7 +650,7 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
           cards.add(
             Padding(
               padding: EdgeInsets.only(
-                bottom: i + columns < _filteredJobRoles.length ? 16 : 0,
+                bottom: i + columns < state.jobRoles.length ? 16 : 0,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,6 +669,7 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
     BuildContext context,
     JobRoleModel role,
     bool isDark,
+    JobRolesState state,
   ) {
     final hasInherits =
         role.inheritsFrom != null && role.inheritsFrom!.isNotEmpty;
@@ -761,11 +779,15 @@ class _JobRolesScreenState extends State<JobRolesScreen> {
         ),
         const Spacer(),
         IconButton(
-          onPressed: () {
-            showDialog(
+          onPressed: () async {
+            final result = await showDialog(
               context: context,
               builder: (context) => CreateEditJobRoleDialog(jobRole: role),
             );
+            if (result != null && result is JobRoleModel && mounted) {
+              // Update locally after successful edit
+              ref.read(_localJobRolesProvider.notifier).updateJobRoleLocally(result);
+            }
           },
           icon: SvgPicture.asset(
             Assets.icons.editIcon.path,
