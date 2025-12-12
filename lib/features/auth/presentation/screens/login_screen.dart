@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/localization/l10n/app_localizations.dart';
@@ -63,63 +64,84 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(isMobile ? 20 : 40),
-          child: Container(
-            width: isMobile ? double.infinity : 773,
-            constraints: BoxConstraints(
-              maxWidth: isMobile ? 500 : 773,
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 24 : 96.5,
-              vertical: isMobile ? 32 : 121,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.black.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildHeader(context, l10n, isMobile),
-                SizedBox(height: isMobile ? 24 : 24),
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      _buildEmailField(context, l10n),
-                      const SizedBox(height: 16),
-                      _buildPasswordField(context, l10n),
-                      const SizedBox(height: 24),
-                      _buildSignInButton(context, l10n, authState),
-                      const SizedBox(height: 32),
-                      _buildDivider(context, l10n),
-                      const SizedBox(height: 32),
-                      _buildCreateAccountButton(context, l10n),
-                      const SizedBox(height: 32),
-                      _buildDemoCredentialsCard(context, l10n),
-                      const SizedBox(height: 24),
-                      _buildHelpLink(context, l10n),
-                    ],
+        body: Center(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 900;
+
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Container(
+                  margin: const EdgeInsets.all(20), // ⭐ Outer margin
+                  alignment: Alignment.center,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 773,
+                      maxHeight: constraints.maxHeight - 40, // ⭐ Card always fits screen
+                    ),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 24 : 96.5,
+                        // vertical: isMobile ? 28 : 60,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+
+                      // ⭐ Card content scrolls internally
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              isMobile ? 28.verticalSpace : 60.verticalSpace,
+                              _buildHeader(context, l10n, isMobile),
+                              const SizedBox(height: 24),
+                              Form(
+                                key: _formKey,
+                                child: Column(
+                                  children: [
+                                    _buildEmailField(context, l10n),
+                                    const SizedBox(height: 16),
+                                    _buildPasswordField(context, l10n),
+                                    const SizedBox(height: 24),
+                                    _buildSignInButton(context, l10n, authState),
+                                    const SizedBox(height: 32),
+                                    _buildDivider(context, l10n),
+                                    const SizedBox(height: 32),
+                                    _buildCreateAccountButton(context, l10n),
+                                    const SizedBox(height: 32),
+                                    _buildDemoCredentialsCard(context, l10n),
+                                    const SizedBox(height: 24),
+                                    _buildHelpLink(context, l10n),
+                                    isMobile ? 28.verticalSpace : 60.verticalSpace,
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
-        ),
-      ),
+        )
     );
   }
 
