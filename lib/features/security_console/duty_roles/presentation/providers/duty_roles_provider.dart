@@ -198,12 +198,6 @@ class DutyRolesNotifier extends StateNotifier<DutyRolesState> {
   }
 
   void updateDutyRoleLocally(DutyRoleModel updatedRole) {
-    if (kDebugMode) {
-      print('updateDutyRoleLocally called with role ID: ${updatedRole.id}, Name: ${updatedRole.name}');
-      print('Current duty roles count: ${state.dutyRoles.length}');
-      print('Current duty role IDs: ${state.dutyRoles.map((r) => '${r.id} (${r.name})').toList()}');
-    }
-    
     // Normalize IDs for comparison (trim whitespace, convert to string)
     final normalizedUpdatedId = updatedRole.id.trim();
     
@@ -211,9 +205,6 @@ class DutyRolesNotifier extends StateNotifier<DutyRolesState> {
       final normalizedRoleId = role.id.trim();
       // Compare normalized IDs
       if (normalizedRoleId == normalizedUpdatedId) {
-        if (kDebugMode) {
-          print('Found matching role with ID: ${role.id} (${role.name}), updating to: ${updatedRole.name}');
-        }
         return updatedRole;
       }
       return role;
@@ -221,24 +212,8 @@ class DutyRolesNotifier extends StateNotifier<DutyRolesState> {
 
     // Check if any role was actually updated
     final wasUpdated = updatedList.any((r) => r.id.trim() == normalizedUpdatedId && r.name == updatedRole.name);
-    
-    if (kDebugMode) {
-      print('Updated list count: ${updatedList.length}');
-      print('Role was updated: $wasUpdated');
-      if (wasUpdated) {
-        final updatedRoleInList = updatedList.firstWhere((r) => r.id.trim() == normalizedUpdatedId);
-        print('Updated role in list - ID: ${updatedRoleInList.id}, Name: ${updatedRoleInList.name}');
-      } else {
-        print('WARNING: Role was not found or not updated!');
-        print('Looking for ID: $normalizedUpdatedId');
-        print('Available IDs: ${updatedList.map((r) => r.id.trim()).toList()}');
-      }
-    }
 
     if (!wasUpdated) {
-      if (kDebugMode) {
-        print('ERROR: Could not find role to update. Adding to list instead.');
-      }
       // If role not found, try to add it (shouldn't happen, but fallback)
       updatedList.add(updatedRole);
     }
@@ -246,10 +221,6 @@ class DutyRolesNotifier extends StateNotifier<DutyRolesState> {
     state = state.copyWith(
       dutyRoles: updatedList,
     );
-    
-    if (kDebugMode) {
-      print('State updated. New duty roles count: ${state.dutyRoles.length}');
-    }
   }
 
   void deleteDutyRoleLocally(String roleId) {

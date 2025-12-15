@@ -17,6 +17,7 @@ class DutyRoleDto {
   final String? createdBy;
   final String? updatedAt;
   final String? updatedBy;
+  final List<Map<String, dynamic>> inheritedFromRoles;
 
   DutyRoleDto({
     required this.id,
@@ -34,6 +35,7 @@ class DutyRoleDto {
     this.createdBy,
     this.updatedAt,
     this.updatedBy,
+    this.inheritedFromRoles = const [],
   });
 
   factory DutyRoleDto.fromJson(Map<String, dynamic> json) {
@@ -51,6 +53,16 @@ class DutyRoleDto {
           })
           .where((dto) => dto != null)
           .cast<FunctionPrivilegeDto>()
+          .toList();
+    }
+
+    // Parse inherited_from_roles array
+    List<Map<String, dynamic>> parsedInheritedRoles = [];
+    if (json['inherited_from_roles'] != null && json['inherited_from_roles'] is List) {
+      final inheritedRolesList = json['inherited_from_roles'] as List;
+      parsedInheritedRoles = inheritedRolesList
+          .where((e) => e is Map<String, dynamic>)
+          .cast<Map<String, dynamic>>()
           .toList();
     }
 
@@ -95,6 +107,7 @@ class DutyRoleDto {
                 json['updatedAt']?.toString(),
       updatedBy: json['updated_by']?.toString() ?? 
                 json['updatedBy']?.toString(),
+      inheritedFromRoles: parsedInheritedRoles,
     );
   }
 
@@ -134,6 +147,15 @@ class DutyRoleDto {
         .where((name) => name.isNotEmpty)
         .toList();
     
+    // Extract inherited role names from inherited_from_roles list
+    final inheritedRoleNames = inheritedFromRoles
+        .map((role) => role['duty_role_name']?.toString() ?? 
+                      role['dutyRoleName']?.toString() ?? 
+                      role['name']?.toString() ?? 
+                      '')
+        .where((name) => name.isNotEmpty)
+        .toList();
+    
     return DutyRoleModel(
       id: id,
       name: dutyRoleName,
@@ -144,6 +166,7 @@ class DutyRoleDto {
       usersAssigned: usersAssigned ?? 0,
       jobRolesCount: jobRolesCount ?? 0,
       privileges: privilegeNames,
+      inheritedFromRoles: inheritedRoleNames,
       lastModified: lastModified ?? updatedAt ?? createdAt ?? '',
     );
   }

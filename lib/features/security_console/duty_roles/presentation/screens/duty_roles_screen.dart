@@ -59,58 +59,74 @@ class _DutyRolesScreenState extends ConsumerState<DutyRolesScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? context.themeBackground : const Color(0xFFF9FAFB),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DutyRolesHeader(
-              isDark: isDark,
-              isMobile: isMobile,
-              state: state,
-              dutyRolesProvider: _localDutyRolesProvider,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DutyRolesHeader(
+                  isDark: isDark,
+                  isMobile: isMobile,
+                  state: state,
+                  dutyRolesProvider: _localDutyRolesProvider,
+                ),
+                const SizedBox(height: 24),
+                DutyRolesStatsCards(
+                  isDark: isDark,
+                  isMobile: isMobile,
+                  totalDutyRoles: totalDutyRoles,
+                  activeDutyRoles: activeDutyRoles,
+                  totalUsers: totalUsers,
+                  avgPrivileges: avgPrivileges,
+                ),
+                const SizedBox(height: 24),
+                DutyRolesSearchAndFilters(
+                  isDark: isDark,
+                  isMobile: isMobile,
+                  searchController: _searchController,
+                  onSearchChanged: _onSearchChanged,
+                  dutyRolesProvider: _localDutyRolesProvider,
+                ),
+                const SizedBox(height: 24),
+                DutyRolesGrid(
+                  isDark: isDark,
+                  isMobile: isMobile,
+                  dutyRolesProvider: _localDutyRolesProvider,
+                ),
+                if (state.totalItems > 0) ...[
+                  const SizedBox(height: 16),
+                  FunctionPrivilegesFooter(
+                    isDark: isDark,
+                    total: state.totalItems,
+                    showing: state.dutyRoles.length,
+                    isLoading: state.isPaginationLoading,
+                    currentPage: state.currentPage,
+                    totalPages: state.totalPages,
+                    hasNextPage: state.hasNextPage,
+                    hasPreviousPage: state.hasPreviousPage,
+                    onNextPage: () => ref.read(_localDutyRolesProvider.notifier).nextPage(),
+                    onPreviousPage: () => ref.read(_localDutyRolesProvider.notifier).previousPage(),
+                    onGoToPage: (page) => ref.read(_localDutyRolesProvider.notifier).goToPage(page),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 24),
-            DutyRolesStatsCards(
-              isDark: isDark,
-              isMobile: isMobile,
-              totalDutyRoles: totalDutyRoles,
-              activeDutyRoles: activeDutyRoles,
-              totalUsers: totalUsers,
-              avgPrivileges: avgPrivileges,
-            ),
-            const SizedBox(height: 24),
-            DutyRolesSearchAndFilters(
-              isDark: isDark,
-              isMobile: isMobile,
-              searchController: _searchController,
-              onSearchChanged: _onSearchChanged,
-              dutyRolesProvider: _localDutyRolesProvider,
-            ),
-            const SizedBox(height: 24),
-            DutyRolesGrid(
-              isDark: isDark,
-              isMobile: isMobile,
-              dutyRolesProvider: _localDutyRolesProvider,
-            ),
-            if (state.totalItems > 0) ...[
-              const SizedBox(height: 16),
-              FunctionPrivilegesFooter(
-                isDark: isDark,
-                total: state.totalItems,
-                showing: state.dutyRoles.length,
-                isLoading: state.isPaginationLoading,
-                currentPage: state.currentPage,
-                totalPages: state.totalPages,
-                hasNextPage: state.hasNextPage,
-                hasPreviousPage: state.hasPreviousPage,
-                onNextPage: () => ref.read(_localDutyRolesProvider.notifier).nextPage(),
-                onPreviousPage: () => ref.read(_localDutyRolesProvider.notifier).previousPage(),
-                onGoToPage: (page) => ref.read(_localDutyRolesProvider.notifier).goToPage(page),
+          ),
+          // Show loader overlay when refreshing (but not during initial load)
+          if (state.isRefreshing && state.dutyRoles.isNotEmpty)
+            Container(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isDark ? Colors.white : const Color(0xFF155DFC),
+                  ),
+                ),
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

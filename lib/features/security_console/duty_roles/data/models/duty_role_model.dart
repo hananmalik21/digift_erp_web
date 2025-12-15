@@ -8,6 +8,7 @@ class DutyRoleModel {
   final int usersAssigned;
   final int jobRolesCount;
   final List<String> privileges;
+  final List<String> inheritedFromRoles;
   final String lastModified;
 
   DutyRoleModel({
@@ -20,6 +21,7 @@ class DutyRoleModel {
     required this.usersAssigned,
     required this.jobRolesCount,
     required this.privileges,
+    this.inheritedFromRoles = const [],
     required this.lastModified,
   });
 

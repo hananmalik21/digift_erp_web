@@ -85,6 +85,21 @@ class DutyRoleCard extends ConsumerWidget {
           ),
           const SizedBox(height: 11),
           _buildPrivilegesList(role.privileges, isDark),
+          if (role.inheritedFromRoles.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Inherited from Roles (${role.inheritedFromRoles.length})',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12.1,
+                fontWeight: FontWeight.w400,
+                color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6A7282),
+                height: 1.16,
+              ),
+            ),
+            const SizedBox(height: 11),
+            _buildInheritedRolesList(role.inheritedFromRoles, isDark),
+          ],
           const SizedBox(height: 26),
           _buildCardFooter(role, isDark),
         ],
@@ -139,25 +154,8 @@ class DutyRoleCard extends ConsumerWidget {
                     backgroundColor: const Color(0xFF00A63E),
                   ),
                 );
-                // Update locally immediately on success
-                if (result['updatedRole'] != null) {
-                  final updatedRole = result['updatedRole'] as DutyRoleModel;
-                  if (kDebugMode) {
-                    print('Card widget: Received updated role with ID: ${updatedRole.id}');
-                    print('Card widget: Current role ID: ${role.id}');
-                  }
-                  // Use the provider passed as parameter
-                  ref.read(dutyRolesProvider.notifier).updateDutyRoleLocally(updatedRole);
-                  if (kDebugMode) {
-                    print('Card widget: Called updateDutyRoleLocally');
-                  }
-                } else {
-                  if (kDebugMode) {
-                    print('Card widget: No updatedRole in result, refreshing...');
-                  }
-                  // Fallback to refresh if updated role not provided
-                  ref.read(dutyRolesProvider.notifier).refresh();
-                }
+                // Refresh the list to get updated data
+                ref.read(dutyRolesProvider.notifier).refresh();
               }
             });
           },
@@ -297,6 +295,58 @@ class DutyRoleCard extends ConsumerWidget {
                 fontSize: 12.1,
                 fontWeight: FontWeight.w400,
                 color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6A7282),
+                height: 1.16,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildInheritedRolesList(List<String> inheritedRoles, bool isDark) {
+    final visibleRoles = inheritedRoles.take(3).toList();
+    final remainingCount = inheritedRoles.length - 3;
+
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        ...visibleRoles.map((role) {
+          return Container(
+            key: ValueKey(role),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD),
+              border: Border.all(color: const Color(0xFF90CAF9)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              role,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12.1,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF155DFC),
+                height: 1.16,
+              ),
+            ),
+          );
+        }),
+        if (remainingCount > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD),
+              border: Border.all(color: const Color(0xFF90CAF9)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '+$remainingCount more',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12.1,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF155DFC),
                 height: 1.16,
               ),
             ),

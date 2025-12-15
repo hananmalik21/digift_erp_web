@@ -4,6 +4,7 @@ class UpdateDutyRoleRequestDto {
   final String? description;
   final int moduleId;
   final List<int> functionPrivileges;
+  final List<int> inheritedFromRoles;
   final String status;
   final String updatedBy;
 
@@ -13,6 +14,7 @@ class UpdateDutyRoleRequestDto {
     this.description,
     required this.moduleId,
     required this.functionPrivileges,
+    this.inheritedFromRoles = const [],
     required this.status,
     required this.updatedBy,
   });
@@ -24,6 +26,7 @@ class UpdateDutyRoleRequestDto {
       if (description != null && description!.isNotEmpty) 'description': description,
       'moduleId': moduleId,
       'functionPrivileges': functionPrivileges,
+      if (inheritedFromRoles.isNotEmpty) 'inheritedFromRoles': inheritedFromRoles,
       'status': status,
       'updatedBy': updatedBy,
     };

@@ -59,8 +59,8 @@ class DutyRolesGrid extends ConsumerWidget {
       );
     }
 
-    // Show loader during initial load
-    if (state.isLoading && state.dutyRoles.isEmpty) {
+    // Show loader during initial load or refresh
+    if ((state.isLoading || state.isRefreshing) && state.dutyRoles.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(48),

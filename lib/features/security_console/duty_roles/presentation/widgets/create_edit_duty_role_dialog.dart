@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/theme_extensions.dart';
@@ -23,6 +24,7 @@ class CreateEditDutyRoleDialog extends ConsumerStatefulWidget {
 class _CreateEditDutyRoleDialogState extends ConsumerState<CreateEditDutyRoleDialog> {
   late final DutyRoleDialogService _dialogService;
   final List<String> _statuses = ['Active', 'Inactive'];
+  Timer? _searchDebounceTimer;
   
   final createEditDutyRoleProvider = StateNotifierProvider.autoDispose.family<CreateEditDutyRoleNotifier, CreateEditDutyRoleState, DutyRoleModel?>(
     (ref, dutyRole) {
@@ -45,6 +47,27 @@ class _CreateEditDutyRoleDialogState extends ConsumerState<CreateEditDutyRoleDia
     _dialogService = DutyRoleDialogService(dataSource);
   }
 
+  @override
+  void dispose() {
+    _searchDebounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onInheritedDutyRoleSearchChanged(String query) {
+    _searchDebounceTimer?.cancel();
+    final provider = createEditDutyRoleProvider(widget.dutyRole);
+    final notifier = ref.read(provider.notifier);
+    
+    if (query.trim().isEmpty) {
+      notifier.clearInheritedDutyRolesSearchResults();
+      return;
+    }
+    
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _dialogService.searchInheritedDutyRoles(notifier, query, widget.dutyRole);
+    });
+  }
+
   Future<void> _handleSave() async {
     final provider = createEditDutyRoleProvider(widget.dutyRole);
     final notifier = ref.read(provider.notifier);
@@ -62,6 +85,7 @@ class _CreateEditDutyRoleDialogState extends ConsumerState<CreateEditDutyRoleDia
         description: state.descriptionController.text,
         moduleId: state.selectedModuleId!,
         selectedPrivileges: state.selectedPrivileges,
+        selectedInheritedDutyRoles: state.selectedInheritedDutyRoles,
         status: state.selectedStatus,
         moduleName: state.selectedModule?.name,
       );
@@ -158,6 +182,14 @@ class _CreateEditDutyRoleDialogState extends ConsumerState<CreateEditDutyRoleDia
                                 onModuleChanged: (module) => notifier.setSelectedModule(module),
                                 onStatusChanged: (status) => notifier.setSelectedStatus(status),
                                 onFieldChanged: () {},
+                                inheritedDutyRolesSearchController: state.inheritedDutyRolesSearchController,
+                                inheritedDutyRolesSearchResults: state.inheritedDutyRolesSearchResults,
+                                selectedInheritedDutyRoles: state.selectedInheritedDutyRoles,
+                                isLoadingInheritedDutyRoles: state.isLoadingInheritedDutyRoles,
+                                inheritedDutyRolesError: state.inheritedDutyRolesError,
+                                onInheritedDutyRoleSelected: (dr) => notifier.addInheritedDutyRole(dr),
+                                onInheritedDutyRoleRemoved: (dr) => notifier.removeInheritedDutyRole(dr),
+                                onInheritedDutyRoleSearchChanged: _onInheritedDutyRoleSearchChanged,
                               )
                             : DutyRoleDialogAssignPrivilegesTab(
                                 isDark: isDark,
@@ -166,7 +198,19 @@ class _CreateEditDutyRoleDialogState extends ConsumerState<CreateEditDutyRoleDia
                                 isLoadingPrivileges: state.isLoadingPrivileges,
                                 privilegesError: state.privilegesError,
                                 onPrivilegeSelected: (privilege) => notifier.addPrivilege(privilege),
-                                onPrivilegeRemoved: (privilege) => notifier.removePrivilege(privilege),
+                                onPrivilegeRemoved: (privilege) {
+                                  if (privilege.inherited) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Inherited privileges cannot be removed'),
+                                        backgroundColor: Colors.orange,
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } else {
+                                    notifier.removePrivilege(privilege);
+                                  }
+                                },
                               ),
                       ),
                     ),
