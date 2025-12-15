@@ -14,6 +14,7 @@ abstract class DutyRoleRemoteDataSource {
     int? moduleId,
     String? status,
   });
+  Future<DutyRoleDto?> getDutyRoleById(int id);
   Future<Map<String, dynamic>> createDutyRole(CreateDutyRoleRequestDto request);
   Future<Map<String, dynamic>> updateDutyRole(int id, UpdateDutyRoleRequestDto request);
   Future<void> deleteDutyRole(int id);
@@ -50,20 +51,11 @@ class DutyRoleRemoteDataSourceImpl implements DutyRoleRemoteDataSource {
       queryParams['status'] = status.toUpperCase();
     }
 
-    if (kDebugMode) {
-      print('GET /api/duty-roles');
-      print('Query Parameters: $queryParams');
-    }
-
     try {
       final response = await apiClient.get(
         '/api/duty-roles',
         queryParameters: queryParams,
       );
-
-      if (kDebugMode) {
-        print('Duty Roles API Response: $response');
-      }
 
       // Handle different response formats
       List<dynamic>? dataList;
@@ -87,9 +79,6 @@ class DutyRoleRemoteDataSourceImpl implements DutyRoleRemoteDataSource {
       }
 
       if (dataList == null) {
-        if (kDebugMode) {
-          print('No duty roles list found in response');
-        }
         return PaginatedResponseDto<DutyRoleDto>(
           data: [],
           meta: PaginationMeta(
@@ -136,10 +125,27 @@ class DutyRoleRemoteDataSourceImpl implements DutyRoleRemoteDataSource {
             : null,
       );
     } catch (e) {
-      if (kDebugMode) {
-        print('Error fetching duty roles: $e');
-      }
       throw Exception('Failed to fetch duty roles: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<DutyRoleDto?> getDutyRoleById(int id) async {
+    try {
+      final response = await apiClient.get('/api/duty-roles/$id');
+
+      if (response.containsKey('data') && response['data'] != null) {
+        final data = response['data'] as Map<String, dynamic>;
+        return DutyRoleDto.fromJson(data);
+      } else if (response.containsKey('duty_role_id') || 
+                 response.containsKey('dutyRoleId') || 
+                 response.containsKey('id')) {
+        return DutyRoleDto.fromJson(response);
+      }
+      
+      return null;
+    } catch (e) {
+      throw Exception('Failed to fetch duty role: ${e.toString()}');
     }
   }
 
@@ -151,15 +157,8 @@ class DutyRoleRemoteDataSourceImpl implements DutyRoleRemoteDataSource {
         body: request.toJson(),
       );
 
-      if (kDebugMode) {
-        print('Create Duty Role API Response: $response');
-      }
-
       return response;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error creating duty role: $e');
-      }
       throw Exception('Failed to create duty role: ${e.toString()}');
     }
   }
@@ -172,15 +171,8 @@ class DutyRoleRemoteDataSourceImpl implements DutyRoleRemoteDataSource {
         body: request.toJson(),
       );
 
-      if (kDebugMode) {
-        print('Update Duty Role API Response: $response');
-      }
-
       return response;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error updating duty role: $e');
-      }
       throw Exception('Failed to update duty role: ${e.toString()}');
     }
   }
@@ -189,14 +181,7 @@ class DutyRoleRemoteDataSourceImpl implements DutyRoleRemoteDataSource {
   Future<void> deleteDutyRole(int id) async {
     try {
       await apiClient.delete('/api/duty-roles/$id');
-
-      if (kDebugMode) {
-        print('Delete Duty Role API Success: Duty role $id deleted');
-      }
     } catch (e) {
-      if (kDebugMode) {
-        print('Error deleting duty role: $e');
-      }
       throw Exception('Failed to delete duty role: ${e.toString()}');
     }
   }

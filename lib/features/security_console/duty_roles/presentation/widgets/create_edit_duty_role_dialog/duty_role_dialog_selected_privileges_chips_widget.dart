@@ -57,28 +57,56 @@ class DutyRoleDialogSelectedPrivilegesChips extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: selectedPrivileges.map((privilege) {
+              final isInherited = privilege.inherited;
               return Chip(
                 key: ValueKey(privilege.id),
-                label: Text(
-                  privilege.name,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF0F172B),
-                  ),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isInherited) ...[
+                      const Icon(
+                        Icons.account_tree,
+                        size: 14,
+                        color: Color(0xFF155DFC),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Flexible(
+                      child: Text(
+                        privilege.name,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: isInherited 
+                              ? const Color(0xFF155DFC) 
+                              : const Color(0xFF0F172B),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-                deleteIcon: const Icon(
-                  Icons.close,
-                  size: 18,
-                  color: Color(0xFF6B7280),
-                ),
-                onDeleted: () => onPrivilegeRemoved(privilege),
-                backgroundColor: const Color(0xFFF3F4F6),
-                side: BorderSide.none,
+                deleteIcon: isInherited 
+                    ? null 
+                    : const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Color(0xFF6B7280),
+                      ),
+                onDeleted: isInherited ? null : () => onPrivilegeRemoved(privilege),
+                backgroundColor: isInherited 
+                    ? const Color(0xFFE3F2FD) 
+                    : const Color(0xFFF3F4F6),
+                side: isInherited 
+                    ? const BorderSide(color: Color(0xFF90CAF9), width: 1)
+                    : BorderSide.none,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                // tooltip: isInherited
+                //     ? 'Inherited privilege - cannot be removed'
+                //     : null,
               );
             }).toList(),
           ),

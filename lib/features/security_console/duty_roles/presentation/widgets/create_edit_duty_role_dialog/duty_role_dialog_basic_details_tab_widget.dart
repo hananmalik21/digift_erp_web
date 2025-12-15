@@ -1,3 +1,4 @@
+import 'package:digify_erp/features/security_console/duty_roles/data/models/duty_role_reference.dart';
 import 'package:digify_erp/features/security_console/functions/data/models/module_dto.dart';
 import 'package:flutter/material.dart';
 import '../../../../../../core/theme/theme_extensions.dart';
@@ -8,6 +9,7 @@ import 'duty_role_dialog_code_field_widget.dart';
 import 'duty_role_dialog_description_field_widget.dart';
 import 'duty_role_dialog_module_field_widget.dart';
 import 'duty_role_dialog_status_field_widget.dart';
+import 'duty_role_dialog_inherit_from_section_widget.dart';
 
 class DutyRoleDialogBasicDetailsTab extends StatelessWidget {
   final bool isDark;
@@ -23,6 +25,14 @@ class DutyRoleDialogBasicDetailsTab extends StatelessWidget {
   final ValueChanged<ModuleDto?> onModuleChanged;
   final ValueChanged<String> onStatusChanged;
   final VoidCallback onFieldChanged;
+  final TextEditingController inheritedDutyRolesSearchController;
+  final List<DutyRoleReference> inheritedDutyRolesSearchResults;
+  final List<DutyRoleReference> selectedInheritedDutyRoles;
+  final bool isLoadingInheritedDutyRoles;
+  final String? inheritedDutyRolesError;
+  final ValueChanged<DutyRoleReference> onInheritedDutyRoleSelected;
+  final ValueChanged<DutyRoleReference> onInheritedDutyRoleRemoved;
+  final ValueChanged<String> onInheritedDutyRoleSearchChanged;
 
   const DutyRoleDialogBasicDetailsTab({
     super.key,
@@ -39,6 +49,14 @@ class DutyRoleDialogBasicDetailsTab extends StatelessWidget {
     required this.onModuleChanged,
     required this.onStatusChanged,
     required this.onFieldChanged,
+    required this.inheritedDutyRolesSearchController,
+    required this.inheritedDutyRolesSearchResults,
+    required this.selectedInheritedDutyRoles,
+    required this.isLoadingInheritedDutyRoles,
+    this.inheritedDutyRolesError,
+    required this.onInheritedDutyRoleSelected,
+    required this.onInheritedDutyRoleRemoved,
+    required this.onInheritedDutyRoleSearchChanged,
   });
 
   @override
@@ -100,6 +118,18 @@ class DutyRoleDialogBasicDetailsTab extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 24),
+        DutyRoleDialogInheritFromSection(
+          isDark: isDark,
+          searchController: inheritedDutyRolesSearchController,
+          searchResults: inheritedDutyRolesSearchResults,
+          selectedDutyRoles: selectedInheritedDutyRoles,
+          isLoading: isLoadingInheritedDutyRoles,
+          error: inheritedDutyRolesError,
+          onDutyRoleSelected: onInheritedDutyRoleSelected,
+          onDutyRoleRemoved: onInheritedDutyRoleRemoved,
+          onSearchChanged: onInheritedDutyRoleSearchChanged,
         ),
         const SizedBox(height: 24),
         const DutyRoleDialogInfoBox(),

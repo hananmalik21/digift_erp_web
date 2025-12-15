@@ -13,6 +13,7 @@ class FunctionPrivilegeDto {
   final String? operationName;
   final String status;
   final int? usedInRoles;
+  final bool inherited;
   final String createdAt;
   final String createdBy;
   final String updatedAt;
@@ -31,6 +32,7 @@ class FunctionPrivilegeDto {
     this.operationName,
     required this.status,
     this.usedInRoles,
+    this.inherited = false,
     required this.createdAt,
     required this.createdBy,
     required this.updatedAt,
@@ -79,6 +81,8 @@ class FunctionPrivilegeDto {
                        json['usedInRoles'] as int? ?? 
                        int.tryParse(json['used_in_roles']?.toString() ?? '0') ?? 0;
     
+    final inherited = json['inherited'] as bool? ?? false;
+    
     final createdAt = json['created_at']?.toString() ?? 
                      json['createdAt']?.toString() ?? '';
     
@@ -106,6 +110,7 @@ class FunctionPrivilegeDto {
       operationName: operationName,
       status: status,
       usedInRoles: usedInRoles,
+      inherited: inherited,
       createdAt: createdAt,
       createdBy: createdBy,
       updatedAt: updatedAt,

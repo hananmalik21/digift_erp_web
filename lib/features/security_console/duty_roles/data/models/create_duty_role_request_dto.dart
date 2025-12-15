@@ -4,6 +4,7 @@ class CreateDutyRoleRequestDto {
   final String? description;
   final int moduleId;
   final List<int> functionPrivileges;
+  final List<int> inheritedFromRoles;
   final String status;
   final String createdBy;
 
@@ -13,6 +14,7 @@ class CreateDutyRoleRequestDto {
     this.description,
     required this.moduleId,
     required this.functionPrivileges,
+    this.inheritedFromRoles = const [],
     required this.status,
     required this.createdBy,
   });
@@ -24,6 +26,7 @@ class CreateDutyRoleRequestDto {
       if (description != null && description!.isNotEmpty) 'description': description,
       'moduleId': moduleId,
       'functionPrivileges': functionPrivileges,
+      if (inheritedFromRoles.isNotEmpty) 'inheritedFromRoles': inheritedFromRoles,
       'status': status,
       'createdBy': createdBy,
     };
