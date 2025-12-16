@@ -1,105 +1,166 @@
+import 'dart:async';
 import 'package:digify_erp/core/widgets/custom_text_field.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../core/localization/l10n/app_localizations.dart';
 import '../../../../../gen/assets.gen.dart';
 import '../../data/models/user_role_model.dart';
 import '../widgets/manage_roles_dialog.dart';
+import '../providers/user_role_assignment_provider.dart';
+import '../../data/datasources/user_role_assignment_remote_datasource.dart';
 
-class UserRoleAssignmentScreen extends StatefulWidget {
+class UserRoleAssignmentScreen extends ConsumerStatefulWidget {
   const UserRoleAssignmentScreen({super.key});
 
   @override
-  State<UserRoleAssignmentScreen> createState() =>
+  ConsumerState<UserRoleAssignmentScreen> createState() =>
       _UserRoleAssignmentScreenState();
 }
 
-class _UserRoleAssignmentScreenState extends State<UserRoleAssignmentScreen> {
+class _UserRoleAssignmentScreenState
+    extends ConsumerState<UserRoleAssignmentScreen> {
   final _searchController = TextEditingController();
-  late List<UserRoleModel> _filteredUsers;
+  final _scrollController = ScrollController();
+  Timer? _searchDebounceTimer;
+
+  // Local provider - autoDispose ensures it's disposed when widget is removed
+  final _localUserRoleAssignmentProvider =
+      StateNotifierProvider.autoDispose<UserRoleAssignmentNotifier,
+          UserRoleAssignmentState>((ref) {
+    final dataSource = UserRoleAssignmentRemoteDataSourceImpl();
+    return UserRoleAssignmentNotifier(dataSource);
+  });
 
   @override
   void initState() {
     super.initState();
-    _filteredUsers = List.of(sampleUserRoles);
-    _searchController.addListener(_filterUsers);
+    _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
+    // Load users when screen is first displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(_localUserRoleAssignmentProvider.notifier).loadUsers();
+    });
   }
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _filterUsers() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      _filteredUsers = sampleUserRoles.where((user) {
-        return query.isEmpty ||
-            user.name.toLowerCase().contains(query) ||
-            user.username.toLowerCase().contains(query) ||
-            user.email.toLowerCase().contains(query) ||
-            user.department.toLowerCase().contains(query);
-      }).toList();
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      // Load next page when user scrolls within 200px of bottom
+      final state = ref.read(_localUserRoleAssignmentProvider);
+      if (state.hasNextPage && !state.isPaginationLoading) {
+        ref.read(_localUserRoleAssignmentProvider.notifier).nextPage();
+      }
+    }
+  }
+
+  void _onSearchChanged() {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      final query = _searchController.text.trim();
+      ref.read(_localUserRoleAssignmentProvider.notifier).search(query);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(_localUserRoleAssignmentProvider);
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
     final isTablet = size.width >= 600 && size.width < 900;
 
-    final totalUsers = sampleUserRoles.length;
-    final usersWithRoles = sampleUserRoles
+    final totalUsers = state.totalItems;
+    final usersWithRoles = state.users
         .where((u) => u.assignedRoles.isNotEmpty)
         .length;
-    final totalRoles = sampleUserRoles.fold<int>(
+    final totalRoles = state.users.fold<int>(
       0,
       (sum, user) => sum + user.assignedRoles.length,
     );
     final avgRolesPerUser = totalUsers > 0
         ? (totalRoles / totalUsers).toStringAsFixed(1)
         : '0';
-    const availableRoles = 2;
+    const availableRoles = 2; // TODO: Get from API if available
 
     return Scaffold(
       backgroundColor: isDark
           ? context.themeBackground
           : const Color(0xFFF9FAFB),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLoggedInBanner(context, isDark),
-            const SizedBox(height: 16),
-            _buildRolesLoadedBanner(context, isDark, availableRoles),
-            const SizedBox(height: 24),
-            _buildHeader(context, l10n, isDark, isMobile),
-            const SizedBox(height: 24),
-            _buildStatsRow(
-              context,
-              l10n,
-              isDark,
-              isMobile,
-              isTablet,
-              totalUsers,
-              usersWithRoles,
-              avgRolesPerUser,
-              availableRoles,
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildLoggedInBanner(context, isDark),
+                const SizedBox(height: 16),
+                _buildRolesLoadedBanner(context, isDark, availableRoles),
+                const SizedBox(height: 24),
+                _buildHeader(context, l10n, isDark, isMobile),
+                const SizedBox(height: 24),
+                _buildStatsRow(
+                  context,
+                  l10n,
+                  isDark,
+                  isMobile,
+                  isTablet,
+                  totalUsers,
+                  usersWithRoles,
+                  avgRolesPerUser,
+                  availableRoles,
+                ),
+                const SizedBox(height: 24),
+                _buildSearchCard(context, l10n, isDark),
+                const SizedBox(height: 24),
+                if (state.isLoading && state.users.isEmpty)
+                  _buildLoadingIndicator(isDark)
+                else if (state.users.isEmpty && !state.isLoading)
+                  _buildEmptyState(context, l10n, isDark)
+                else
+                  Stack(
+                    children: [
+                      _buildUsersList(context, l10n, isDark, isMobile, state),
+                      if (state.isRefreshing)
+                        Positioned.fill(
+                          child: Container(
+                            color: (isDark ? context.themeBackground : const Color(0xFFF9FAFB))
+                                .withValues(alpha: 0.7),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                if (state.isPaginationLoading)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isDark ? Colors.white : const Color(0xFF0A0A0A),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                _buildFooter(context, l10n, isDark, state),
+              ]),
             ),
-            const SizedBox(height: 24),
-            _buildSearchCard(context, l10n, isDark),
-            const SizedBox(height: 24),
-            _buildUsersList(context, l10n, isDark, isMobile),
-            const SizedBox(height: 24),
-            _buildFooter(context, l10n, isDark),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -268,33 +329,53 @@ class _UserRoleAssignmentScreenState extends State<UserRoleAssignmentScreen> {
   }
 
   Widget _buildRefreshButton(BuildContext context, bool isDark) {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark ? context.themeCardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.refresh,
-            size: 16,
-            color: isDark ? Colors.white : const Color(0xFF0A0A0A),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Refresh Data',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13.8,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white : const Color(0xFF0A0A0A),
+    final state = ref.watch(_localUserRoleAssignmentProvider);
+    final isRefreshing = state.isRefreshing;
+
+    return GestureDetector(
+      onTap: isRefreshing
+          ? null
+          : () {
+              ref.read(_localUserRoleAssignmentProvider.notifier).refresh();
+            },
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark ? context.themeCardBackground : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isRefreshing)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0A0A0A)),
+                ),
+              )
+            else
+              Icon(
+                Icons.refresh,
+                size: 16,
+                color: isDark ? Colors.white : const Color(0xFF0A0A0A),
+              ),
+            const SizedBox(width: 8),
+            Text(
+              'Refresh Data',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13.8,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white : const Color(0xFF0A0A0A),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -467,60 +548,79 @@ class _UserRoleAssignmentScreenState extends State<UserRoleAssignmentScreen> {
     );
   }
 
+  Widget _buildLoadingIndicator(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(48),
+      decoration: BoxDecoration(
+        color: isDark ? context.themeCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+
   Widget _buildUsersList(
     BuildContext context,
     AppLocalizations l10n,
     bool isDark,
     bool isMobile,
+    UserRoleAssignmentState state,
   ) {
-    if (_filteredUsers.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(48),
-        decoration: BoxDecoration(
-          color: isDark ? context.themeCardBackground : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-        ),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 64,
-                color: context.themeTextTertiary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                l10n.noUsersFound,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: context.themeTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.tryAdjustingSearchCriteria,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  color: context.themeTextSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Column(
-      children: _filteredUsers.map((user) {
+      children: state.users.map((user) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildUserCard(context, user, isDark, isMobile, l10n),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildEmptyState(
+    BuildContext context,
+    AppLocalizations l10n,
+    bool isDark,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(48),
+      decoration: BoxDecoration(
+        color: isDark ? context.themeCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 64,
+              color: context.themeTextTertiary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.noUsersFound,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: context.themeTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.tryAdjustingSearchCriteria,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: context.themeTextSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -789,11 +889,15 @@ class _UserRoleAssignmentScreenState extends State<UserRoleAssignmentScreen> {
 
   Widget _buildManageRolesButton(bool isDark, UserRoleModel user) {
     return GestureDetector(
-      onTap: () {
-        showDialog(
+      onTap: () async {
+        final result = await showDialog(
           context: context,
           builder: (context) => ManageRolesDialog(user: user),
         );
+        // Refresh data if dialog returned a result (update was successful)
+        if (result != null && mounted) {
+          ref.read(_localUserRoleAssignmentProvider.notifier).refresh();
+        }
       },
       child: Container(
         height: 32,
@@ -848,6 +952,7 @@ class _UserRoleAssignmentScreenState extends State<UserRoleAssignmentScreen> {
     BuildContext context,
     AppLocalizations l10n,
     bool isDark,
+    UserRoleAssignmentState state,
   ) {
     return Container(
       height: 54,
@@ -862,7 +967,7 @@ class _UserRoleAssignmentScreenState extends State<UserRoleAssignmentScreen> {
       child: Row(
         children: [
           Text(
-            'Showing ${_filteredUsers.length} of ${sampleUserRoles.length} users',
+            'Showing ${state.users.length} of ${state.totalItems} users',
             style: TextStyle(
               fontFamily: 'Inter',
               fontSize: 13.6,

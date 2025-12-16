@@ -27,6 +27,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: '/login',
+    debugLogDiagnostics: false, // Disable debug logging in production
     redirect: (context, state) {
       final isAuthenticated = authState.isAuthenticated;
       final isLoggingIn = state.matchedLocation == '/login' ||
@@ -75,6 +76,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/dashboard/security/user-accounts/create',
             name: 'create-user-account',
             builder: (context, state) => const CreateUserAccountScreen(),
+          ),
+          GoRoute(
+            path: '/dashboard/security/user-accounts/edit/:id',
+            name: 'edit-user-account',
+            builder: (context, state) {
+              final idParam = state.pathParameters['id'];
+              final userId = idParam != null ? int.tryParse(idParam) : null;
+              if (userId == null) {
+                // Invalid ID, redirect to list
+                return const UserAccountsScreen();
+              }
+              return CreateUserAccountScreen(userId: userId);
+            },
           ),
           GoRoute(
             path: '/dashboard/security/user-role-assignment',

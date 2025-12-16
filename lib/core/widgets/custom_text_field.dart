@@ -29,6 +29,8 @@ class CustomTextField extends StatefulWidget {
   final TextStyle? helperTextStyle;
   final bool expands;
   final String? initialValue;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   const CustomTextField({
     super.key,
@@ -58,6 +60,8 @@ class CustomTextField extends StatefulWidget {
     this.helperTextStyle,
     this.expands = false,
     this.initialValue,
+    this.readOnly = false,
+    this.onTap,
   });
 
   factory CustomTextField.search({
@@ -96,6 +100,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   late TextEditingController _controller;
   bool _obscureText = true;
+  bool _isUserTyping = false;
 
   @override
   void initState() {
@@ -106,6 +111,37 @@ class _CustomTextFieldState extends State<CustomTextField> {
       widget.controller!.text = widget.initialValue!;
     }
     _obscureText = widget.obscureText;
+    
+    // Track when user is typing
+    final controller = widget.controller ?? _controller;
+    controller.addListener(() {
+      _isUserTyping = true;
+      // Reset flag after a short delay
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _isUserTyping = false;
+        }
+      });
+    });
+  }
+
+  @override
+  void didUpdateWidget(CustomTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only update controller if initialValue changed AND user is not currently typing
+    // This prevents overwriting user input when the widget rebuilds due to form state changes
+    if (widget.initialValue != oldWidget.initialValue && !_isUserTyping) {
+      final currentController = widget.controller ?? _controller;
+      final currentText = currentController.text;
+      
+      // Only update if the new initialValue is actually different from current text
+      if (widget.initialValue != null && widget.initialValue != currentText) {
+        currentController.text = widget.initialValue!;
+      } else if (widget.initialValue == null && currentText.isNotEmpty) {
+        // Only clear if initialValue is explicitly set to null
+        currentController.text = '';
+      }
+    }
   }
 
   @override
@@ -203,6 +239,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       expands: widget.expands,
       textInputAction: widget.textInputAction,
       onChanged: widget.onChanged,
+      readOnly: widget.readOnly,
       style: TextStyle(
         fontFamily: 'Inter',
         fontSize: widget.fontSize ?? 13.7,
@@ -278,6 +315,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
       ),
     );
 
+    // For date fields (readOnly with onTap), we need to prevent text input but allow taps
+    // For regular fields, return the field normally without any blocking
+    final isDateField = widget.onTap != null && widget.readOnly;
+    
     // Always enforce your default height if none is provided
     Widget field = SizedBox(
       height: widget.height ?? _defaultHeight,
@@ -286,7 +327,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
     // Add label and helper text if provided
     if (labelWidget != null || widget.helperText != null) {
-      return Column(
+      Widget content = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (labelWidget != null) ...[
@@ -310,8 +351,57 @@ class _CustomTextFieldState extends State<CustomTextField> {
           ],
         ],
       );
+      
+      // Only wrap in GestureDetector and AbsorbPointer for date fields
+      if (isDateField) {
+        return GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (labelWidget != null) ...[
+                labelWidget,
+                const SizedBox(height: 14),
+              ],
+              AbsorbPointer(
+                child: field,
+              ),
+              if (widget.helperText != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  widget.helperText!,
+                  style: widget.helperTextStyle ??
+                      const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11.8,
+                        fontWeight: FontWeight.w400,
+                        height: 16 / 11.8,
+                        color: Color(0xFF6A7282),
+                      ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }
+      
+      // Regular fields - return content without any blocking
+      return content;
     }
 
+    // If date field (and no label/helper), wrap field in GestureDetector with AbsorbPointer
+    if (isDateField) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AbsorbPointer(
+          child: field,
+        ),
+      );
+    }
+
+    // Regular fields - return field without any blocking
     return field;
   }
 }

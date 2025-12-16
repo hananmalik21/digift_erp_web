@@ -125,8 +125,16 @@ class JobRolesNotifier extends StateNotifier<JobRolesState> {
         status: state.selectedStatus,
       );
 
+      // Convert DTOs to models
+      final jobRoleModels = result.data.map((dto) => dto.toModel()).toList();
+
+      // If paginating, append to existing list; otherwise replace
+      final updatedJobRoles = isPagination
+          ? [...state.jobRoles, ...jobRoleModels]
+          : jobRoleModels;
+
       state = state.copyWith(
-        jobRoles: result.data.map((dto) => dto.toModel()).toList(),
+        jobRoles: updatedJobRoles,
         isLoading: false,
         isRefreshing: false,
         isPaginationLoading: false,

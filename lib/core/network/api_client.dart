@@ -98,11 +98,13 @@ class ApiClient {
 
   Future<Map<String, dynamic>> delete(
     String endpoint, {
+    Map<String, dynamic>? body,
     Map<String, String>? headers,
   }) async {
     try {
       final response = await _dio.delete(
         endpoint,
+        data: body,
         options: Options(
           headers: headers,
         ),

@@ -1,57 +1,92 @@
+import 'dart:async';
 import 'package:digify_erp/core/widgets/custom_text_field.dart';
 import 'package:digify_erp/core/widgets/filter_pill_dropdown.dart';
+import 'package:digify_erp/core/widgets/delete_confirmation_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/theme/theme_extensions.dart';
 import '../../../../../core/localization/l10n/app_localizations.dart';
 import '../../../../../gen/assets.gen.dart';
 import '../../data/models/user_account_model.dart';
+import '../../data/datasources/user_account_remote_datasource.dart';
+import '../../data/utils/account_type_mapper.dart';
+import '../providers/user_accounts_provider.dart';
+import '../services/user_account_service.dart';
+import '../../../function_privileges/presentation/widgets/function_privileges_footer_widget.dart';
+import '../widgets/user_account_details_dialog.dart';
+import '../widgets/reset_password_dialog.dart';
 
-class UserAccountsScreen extends StatefulWidget {
+class UserAccountsScreen extends ConsumerStatefulWidget {
   const UserAccountsScreen({super.key});
 
   @override
-  State<UserAccountsScreen> createState() => _UserAccountsScreenState();
+  ConsumerState<UserAccountsScreen> createState() => _UserAccountsScreenState();
 }
 
-class _UserAccountsScreenState extends State<UserAccountsScreen> {
+class _UserAccountsScreenState extends ConsumerState<UserAccountsScreen> {
   final _searchController = TextEditingController();
+  Timer? _searchDebounceTimer;
   String _selectedType = 'All Types';
   String _selectedStatus = 'All Status';
-  late List<UserAccountModel> _filteredUsers;
+
+  // Local provider - autoDispose ensures it's disposed when widget is removed
+  final _localUserAccountsProvider = StateNotifierProvider.autoDispose<UserAccountsNotifier, UserAccountsState>(
+    (ref) {
+      final dataSource = UserAccountRemoteDataSourceImpl();
+      return UserAccountsNotifier(dataSource);
+    },
+  );
 
   @override
   void initState() {
     super.initState();
-    _filteredUsers = List.of(sampleUserAccounts);
-    _searchController.addListener(_filterUsers);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _filterUsers() {
-    setState(() {
-      final query = _searchController.text.toLowerCase();
-      _filteredUsers = sampleUserAccounts.where((user) {
-        final matchesSearch =
-            query.isEmpty ||
-            user.name.toLowerCase().contains(query) ||
-            user.username.toLowerCase().contains(query) ||
-            user.email.toLowerCase().contains(query);
-        final matchesStatus =
-            _selectedStatus == 'All Status' || user.status == _selectedStatus;
-        return matchesSearch && matchesStatus;
-      }).toList();
+    _searchController.addListener(_onSearchChanged);
+    // Load users when screen is first displayed or when returning to this screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(_localUserAccountsProvider.notifier).loadUsers();
     });
   }
 
   @override
+  void dispose() {
+    _searchDebounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      final query = _searchController.text.trim();
+      ref.read(_localUserAccountsProvider.notifier).search(query);
+    });
+  }
+
+  void _onStatusChanged(String? status) {
+    if (status == null) return;
+    setState(() {
+      _selectedStatus = status;
+    });
+    ref.read(_localUserAccountsProvider.notifier).filterByStatus(
+      status == 'All Status' ? null : status,
+    );
+  }
+
+  void _onTypeChanged(String? type) {
+    if (type == null) return;
+    setState(() {
+      _selectedType = type;
+    });
+    ref.read(_localUserAccountsProvider.notifier).filterByType(
+      type == 'All Types' ? null : type,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = ref.watch(_localUserAccountsProvider);
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
@@ -69,13 +104,27 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
           children: [
             _buildHeader(context, l10n, isDark, isMobile),
             const SizedBox(height: 24),
-            _buildStatsRow(context, l10n, isDark, isMobile, isTablet),
+            _buildStatsRow(context, l10n, isDark, isMobile, isTablet, state),
             const SizedBox(height: 24),
             _buildSearchAndFilters(context, l10n, isDark, isMobile),
             const SizedBox(height: 24),
-            _buildUsersList(context, l10n, isDark, isMobile),
-            const SizedBox(height: 24),
-            _buildFooter(context, l10n, isDark),
+            _buildUsersList(context, l10n, isDark, isMobile, state),
+            if (state.totalItems > 0) ...[
+              const SizedBox(height: 16),
+              FunctionPrivilegesFooter(
+                isDark: isDark,
+                total: state.totalItems,
+                showing: state.users.length,
+                isLoading: state.isPaginationLoading,
+                currentPage: state.currentPage,
+                totalPages: state.totalPages,
+                hasNextPage: state.hasNextPage,
+                hasPreviousPage: state.hasPreviousPage,
+                onNextPage: () => ref.read(_localUserAccountsProvider.notifier).nextPage(),
+                onPreviousPage: () => ref.read(_localUserAccountsProvider.notifier).previousPage(),
+                onGoToPage: (page) => ref.read(_localUserAccountsProvider.notifier).goToPage(page),
+              ),
+            ],
           ],
         ),
       ),
@@ -128,11 +177,55 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
             ],
           ),
         ),
-        if (!isMobile) ...[
-          const SizedBox(width: 16),
+        const SizedBox(width: 16),
+        _buildRefreshButton(context, isDark),
+        const SizedBox(width: 8),
+        if (!isMobile)
           _buildCreateAccountButton(context, l10n, isDark),
-        ],
       ],
+    );
+  }
+
+  Widget _buildRefreshButton(
+    BuildContext context,
+    bool isDark,
+  ) {
+    final state = ref.watch(_localUserAccountsProvider);
+    final isRefreshing = state.isRefreshing;
+    
+    return InkWell(
+      onTap: isRefreshing
+          ? null
+          : () {
+              ref.read(_localUserAccountsProvider.notifier).refresh();
+            },
+      child: Container(
+        height: 36,
+        width: 36,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111827) : Colors.white,
+          border: Border.all(
+            color: Colors.black.withValues(alpha: 0.1),
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: isRefreshing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0A0A0A)),
+                  ),
+                )
+              : const Icon(
+                  Icons.refresh,
+                  size: 18,
+                  color: Color(0xFF0A0A0A),
+                ),
+        ),
+      ),
     );
   }
 
@@ -143,7 +236,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
   ) {
     return InkWell(
       onTap: () {
-        context.push('/dashboard/security/user-accounts/create');
+        context.goNamed('create-user-account');
       },
       child: Container(
         height: 36,
@@ -179,20 +272,19 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
     bool isDark,
     bool isMobile,
     bool isTablet,
+    UserAccountsState state,
   ) {
-    final activeCount = sampleUserAccounts
-        .where((u) => u.status == 'Active')
-        .length;
-    final lockedCount = sampleUserAccounts
-        .where((u) => u.status == 'Locked')
-        .length;
-    final mfaCount = sampleUserAccounts.where((u) => u.mfaEnabled).length;
+    final activeCount = state.activeCount ?? 
+                       state.users.where((u) => u.status == 'Active').length;
+    final inactiveCount = state.inactiveCount ?? 
+                         state.users.where((u) => u.status == 'Inactive').length;
+    final mfaCount = state.users.where((u) => u.mfaEnabled).length;
     final passwordIssues = 0;
 
     final stats = [
       {
         'label': 'Total Accounts',
-        'value': '${sampleUserAccounts.length}',
+        'value': '${state.totalItems}',
         'valueColor': isDark ? Colors.white : const Color(0xFF0A0A0A),
         'borderColor': Colors.transparent,
       },
@@ -203,8 +295,8 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
         'borderColor': const Color(0xFF00A63E),
       },
       {
-        'label': 'Locked',
-        'value': '$lockedCount',
+        'label': 'Inactive',
+        'value': '$inactiveCount',
         'valueColor': const Color(0xFFE7000B),
         'borderColor': const Color(0xFFE7000B),
       },
@@ -414,10 +506,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
       isDark: isDark,
       onChanged: (value) {
         if (value == null) return;
-        setState(() {
-          _selectedType = value;
-          _filterUsers();
-        });
+        _onTypeChanged(value);
       },
     );
   }
@@ -429,10 +518,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
       isDark: isDark,
       onChanged: (value) {
         if (value == null) return;
-        setState(() {
-          _selectedStatus = value;
-          _filterUsers();
-        });
+        _onStatusChanged(value);
       },
     );
   }
@@ -479,8 +565,67 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
     AppLocalizations l10n,
     bool isDark,
     bool isMobile,
+    UserAccountsState state,
   ) {
-    if (_filteredUsers.isEmpty) {
+    if (state.isLoading && state.users.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(48),
+        decoration: BoxDecoration(
+          color: isDark ? context.themeCardBackground : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+        ),
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isDark ? Colors.white : const Color(0xFF155DFC),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (state.error != null && state.users.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(48),
+        decoration: BoxDecoration(
+          color: isDark ? context.themeCardBackground : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading users',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: context.themeTextPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                state.error!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: context.themeTextSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (state.users.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(48),
         decoration: BoxDecoration(
@@ -512,7 +657,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
     }
 
     return Column(
-      children: _filteredUsers.map((user) {
+      children: state.users.map((user) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildUserCard(context, user, isDark, isMobile),
@@ -584,7 +729,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
                         const SizedBox(width: 12),
                         // Badges
                         _buildBadge(
-                          'Local',
+                          AccountTypeMapper.toUiFormat(user.accountType),
                           const Color(0xFF1447E6),
                           const Color(0xFFDBEAFE),
                           const Color(0xFFBEDBFF),
@@ -621,7 +766,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
                 ),
               ),
               // Action buttons
-              if (!isMobile) _buildActionButtons(context, isDark),
+              if (!isMobile) _buildActionButtons(context, isDark, user),
             ],
           ),
           const SizedBox(height: 24),
@@ -638,7 +783,7 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
                 const SizedBox(height: 12),
                 _buildInfoItem('Password Expiry', '3/4/2026', isDark),
                 const SizedBox(height: 16),
-                _buildActionButtons(context, isDark),
+                _buildActionButtons(context, isDark, user),
               ],
             )
           else
@@ -780,24 +925,115 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, bool isDark) {
+  Widget _buildActionButtons(BuildContext context, bool isDark, UserAccountModel? user) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildActionIcon(Assets.icons.visibleIcon.path, isDark),
+        _buildActionIcon(
+          Assets.icons.visibleIcon.path,
+          isDark,
+          onTap: user != null
+              ? () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => UserAccountDetailsDialog(user: user),
+                  );
+                }
+              : null,
+        ),
         const SizedBox(width: 24),
-        _buildActionIcon(Assets.icons.editIcon.path, isDark),
+        _buildActionIcon(
+          Assets.icons.editIcon.path,
+          isDark,
+          onTap: user != null
+              ? () {
+                  // Navigate to edit route - URL will update with user ID
+                  final userId = user.id; // This is a String from the model
+                  context.goNamed(
+                    'edit-user-account',
+                    pathParameters: {'id': userId},
+                  );
+                }
+              : null,
+        ),
         const SizedBox(width: 24),
-        _buildActionIcon(Assets.icons.refreshIcon.path, isDark),
+        _buildActionIcon(
+          Assets.icons.refreshIcon.path,
+          isDark,
+          onTap: user != null
+              ? () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => ResetPasswordDialog(user: user),
+                  );
+                }
+              : null,
+        ),
         const SizedBox(width: 24),
-        _buildActionIcon(Assets.icons.deleteIcon.path, isDark),
+        _buildActionIcon(
+          Assets.icons.deleteIcon.path,
+          isDark,
+          onTap: user != null
+              ? () => _handleDeleteUser(context, user)
+              : null,
+        ),
       ],
     );
   }
 
-  Widget _buildActionIcon(String icon, bool isDark) {
+  Future<void> _handleDeleteUser(BuildContext context, UserAccountModel user) async {
+    final userId = int.tryParse(user.id);
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid user ID'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await DeleteConfirmationDialog.show(
+      context,
+      title: 'Delete User Account',
+      message: 'Are you sure you want to delete this user account? This action cannot be undone.',
+      itemName: user.name.isNotEmpty ? user.name : user.username,
+      onConfirm: () async {
+        try {
+          final dataSource = UserAccountRemoteDataSourceImpl();
+          final service = UserAccountService(dataSource);
+          await service.deleteUserAccount(userId);
+          return true;
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to delete user: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return false;
+        }
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      // Delete locally from the list for better UX
+      ref.read(_localUserAccountsProvider.notifier).deleteUserLocally(user.id);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User account deleted successfully'),
+          backgroundColor: Color(0xFF00A63E),
+        ),
+      );
+    }
+  }
+
+  Widget _buildActionIcon(String icon, bool isDark, {VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap ?? () {},
       child: SvgPicture.asset(
         icon,
         height: 16,
@@ -807,37 +1043,6 @@ class _UserAccountsScreenState extends State<UserAccountsScreen> {
     );
   }
 
-  Widget _buildFooter(
-    BuildContext context,
-    AppLocalizations l10n,
-    bool isDark,
-  ) {
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? context.themeCardBackgroundGrey
-            : const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Text(
-            'Showing ${_filteredUsers.length} of ${sampleUserAccounts.length} user accounts',
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 13.6,
-              fontWeight: FontWeight.w400,
-              height: 20 / 13.6,
-              color: Color(0xFF4A5565),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 

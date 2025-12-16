@@ -1,3 +1,5 @@
+import '../../../job_roles/data/models/job_role_model.dart';
+
 class UserAccountModel {
   final String id;
   final String name;
@@ -11,6 +13,24 @@ class UserAccountModel {
   final String accountCreated;
   final String passwordChanged;
   final List<String> roles;
+  
+  // Additional fields from API
+  final String accountType;
+  final String? startDate;
+  final String? endDate;
+  final bool mustChangePassword;
+  final bool passwordNeverExpires;
+  final String preferredLanguage;
+  final String timezoneCode;
+  final String dateFormat;
+  final String? firstName;
+  final String? middleName;
+  final String? lastName;
+  final String? displayName;
+  final String? employeeNumber;
+  final String? phoneNumber;
+  final String? managerEmail;
+  final List<JobRoleModel> jobRoles;
 
   // Convenience getters for compatibility
   String get userId => id;
@@ -29,6 +49,22 @@ class UserAccountModel {
     required this.accountCreated,
     required this.passwordChanged,
     required this.roles,
+    this.accountType = 'EMPLOYEE',
+    this.startDate,
+    this.endDate,
+    this.mustChangePassword = false,
+    this.passwordNeverExpires = false,
+    this.preferredLanguage = 'en',
+    this.timezoneCode = 'UTC',
+    this.dateFormat = 'MM/DD/YYYY',
+    this.firstName,
+    this.middleName,
+    this.lastName,
+    this.displayName,
+    this.employeeNumber,
+    this.phoneNumber,
+    this.managerEmail,
+    this.jobRoles = const [],
   });
 }
 
